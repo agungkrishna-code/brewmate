@@ -38,6 +38,13 @@ yarn-error.*
 
 example
 
+# local reports
+build-log.txt
+lint-report.txt
+
+# IDE
+/.idea
+
 # generated native folders
 /ios
 /android

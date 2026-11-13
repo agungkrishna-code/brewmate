@@ -1,56 +1,489 @@
-# Welcome to your Expo app 👋
+# Brewmate — V60 Coffee Companion
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+An offline-first Android app for Hario V60 pour-over brewing, built around the
+TIMEMORE Chestnut **S5 Pro** and **C5 Pro** hand grinders.
 
-## Get started
+Brewmate calculates your water, times your pours, keeps a grind log per coffee
+and remembers how the cup actually tasted. Everything lives in a local SQLite
+database — no account, no network, no tracking.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## What it does
 
-2. Start the app
+**Home** — a greeting, your last-used recipe, one-tap start, favourite recipes,
+recent coffees, brew stats and quick access to both grinder profiles.
 
-   ```bash
-   npx expo start
-   ```
+**Brew (calculator)** — dose, ratio, total water, temperature, bloom multiplier
+and any number of pour stages. Every stage is editable and the water always adds
+up: the final stage lands exactly on the total, to 0.1 g.
 
-In the output, you'll find options to open the app in a
+**Brewing timer** — a full-screen brew mode with a progress ring, the current
+stage, the cumulative scale target and the instruction for that stage. Pause,
+resume, skip a stage, reset. Elapsed time is derived from wall-clock timestamps,
+so backgrounding the app or a slow JS thread never drifts the timer. The screen
+stays awake while brewing and a light haptic fires on each stage change. At the
+end you can log the brew with ratings and notes.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+**Recipes** — create, edit, duplicate, delete, favourite. Each recipe stores
+dose, ratio, temperature, grinder, grind setting, bloom, the full pour schedule,
+target time and notes. Three clearly-labelled **starter recipes** ship with the
+app; they are editable starting points, not brewing rules.
 
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+**Grinder** — two built-in profiles plus custom grinders. Saves the setting you
+used for a specific coffee, linked to a recipe, with the latest tasting score.
+Never converts a setting between models.
 
-## Get a fresh project
+**Coffee beans** — name, origin, country, region, farm, variety, processing
+method, roast level, roast date, tasting notes and personal notes. Archive a bag
+without losing its history.
 
-When you're ready, run:
+**Journal** — every session with dose, ratio, temperature, stages, total time,
+grinder and grind setting, plus six 1–5 ratings (acidity, sweetness, bitterness,
+body, clarity, aftertaste). Filter by grinder or coffee, compare two brews side
+by side, and see your aggregate stats.
 
-```bash
-npm run reset-project
+**Settings** — light/dark/system theme, haptics, keep-awake, JSON export and
+restore.
+
+## Screens
+
+<table>
+  <tr>
+    <td><img src="docs/home.png" width="200" alt="Home dashboard" /></td>
+    <td><img src="docs/timer.png" width="200" alt="Brewing timer" /></td>
+    <td><img src="docs/recipes.png" width="200" alt="Recipe library" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Home</sub></td>
+    <td align="center"><sub>Brewing timer</sub></td>
+    <td align="center"><sub>Recipes</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/grinder.png" width="200" alt="Grinder profiles" /></td>
+    <td><img src="docs/journal.png" width="200" alt="Brew journal" /></td>
+    <td><img src="docs/recipe-editor.png" width="200" alt="Recipe editor" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Grinder</sub></td>
+    <td align="center"><sub>Journal</sub></td>
+    <td align="center"><sub>Recipe editor</sub></td>
+  </tr>
+</table>
+
+Captured from the release APK on a Pixel 9 API 37 emulator.
+
+---
+
+## Grinder data used
+
+| | TIMEMORE Chestnut S5 Pro | TIMEMORE Chestnut C5 Pro |
+|---|---|---|
+| Clicks per rotation | 90 | 48 |
+| Macro steps per rotation | — | 16 |
+| Adjustment per click | 0.015 mm (15 µm) | 0.031 mm (31 µm) |
+| Manufacturer pour-over reference | 5.0–8.0 on the dial | not published |
+| How Brewmate reads a setting | dial rotations (`6.5` → 585 clicks) | clicks from zero (`20` → 0 rot 20 clicks) |
+
+> One click on an S5 Pro is **not** one click on a C5 Pro. Brewmate deliberately
+> refuses to convert between the two; it only converts within one model (rotations
+> ↔ clicks ↔ burr travel) and shows the arithmetic so you can sanity-check it.
+
+The manufacturer reference is shown as a fact. Your own working range, stored as
+"your calibration", is what the app uses for the in-range indicator.
+
+---
+
+## Stack
+
+- Expo SDK 58, React Native 0.88, React 19.3, TypeScript (strict)
+- Expo Router (file-based routing, JavaScript tabs)
+- `expo-sqlite` with `PRAGMA user_version` migrations
+- React Context + hooks for state (no Redux, no external state library)
+- `react-native-svg` for the timer ring
+- `expo-haptics`, `expo-keep-awake`, `expo-file-system`, `expo-sharing`,
+  `expo-document-picker`
+- React Native `StyleSheet` only — no UI framework, no icon assets beyond
+  `@expo/vector-icons/Ionicons`
+
+---
+
+## Project structure
+
+```
+src/
+  app/                       routes (Expo Router)
+    (tabs)/index.tsx         Home
+    (tabs)/brew.tsx          calculator
+    (tabs)/recipes.tsx       recipe library
+    (tabs)/grinder.tsx       grinder hub
+    (tabs)/journal.tsx       brewing history
+    brewing/timer.tsx        full-screen brew timer
+    recipes/[id].tsx         recipe detail
+    recipes/new.tsx          new recipe (accepts a calculator prefill)
+    recipes/edit.tsx         edit recipe
+    beans/                   coffee list, create, edit
+    grinders/[id].tsx        grinder detail + calibration
+    grinders/new.tsx         custom grinder
+    journal/[id].tsx         session detail + tasting review
+    journal/compare.tsx      two-brew comparison
+    settings/index.tsx       theme, haptics, backup, about
+  components/
+    common/                  text, screen, button, field, sheet, rating, …
+    brewing/                 plan inputs, stage editor, stage list, timer ring
+    recipes/  grinder/  journal/  beans/
+  constants/                 theme tokens, defaults, starter recipes
+  contexts/                  settings (preferences) and the in-memory brew draft
+  database/                  schema, migrations, seeds, bootstrap
+  hooks/                     use-brew-plan, use-brewing-timer, use-database, use-theme
+  services/                  calculator, timeline, grinders, beans, recipes,
+                             journal, preferences, backup
+  types/                     grinder, coffee, recipe, brewing
+  utils/                     calculations, grinder maths, formatting, validation
+tests/logic.test.ts          water maths, timeline, grinder clicks, validation
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+---
 
-### Other setup steps
+## Data model
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```
+grinder_profiles ──┬── brew_recipes ── brew_pour_steps
+                   │         │
+                   │         └── brew_sessions ── brew_session_steps
+                   │                    │
+                   │                    └── brew_session_ratings
+                   ├── grind_settings ── coffee_beans
+                   └── (brew_sessions)
+coffee_beans ──────┘
+user_preferences (key/value)
+```
 
-## Learn more
+- Text UUID-style ids generated locally (`utils/id.ts`).
+- Foreign keys are enabled per connection; deletes cascade where it makes sense
+  (`steps`, `ratings`) and `SET NULL` where history must survive (a session keeps
+  name snapshots of its bean, recipe and grinder).
+- Indexes on session date, bean, grinder, pour steps and grind settings.
+- Migrations run in a transaction and bump `PRAGMA user_version`.
+- Seeding is idempotent: the two TIMEMORE profiles are re-checked on every
+  launch, starter recipes only on first creation.
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Water arithmetic (the invariant)
 
-## Join the community
+1. `totalWater = round1(dose × ratio)`
+2. `bloomWater = round1(dose × bloomMultiplier)`
+3. `remaining = totalWater − bloomWater`
+4. Remaining water is split across pours; the last stage absorbs rounding.
+5. Editing one stage moves the difference into a neighbouring stage, keeping the
+   total exact and every stage ≥ 0.1 g.
 
-Join our community of developers creating universal apps.
+Stored steps use **cumulative** scale targets, so the timer can read a single
+number. `tests/logic.test.ts` asserts the totals, the round-trip between
+per-stage amounts and cumulative targets, and that cumulative targets never
+decrease.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+## Menjalankan project (panduan Bahasa Indonesia)
+
+Panduan ini ditulis untuk Windows + Android Studio, karena target app ini hanya
+Android. Bagian bahasa Inggris di bawah tetap berlaku sebagai referensi.
+
+### 1. Prasyarat
+
+| Kebutuhan | Versi | Cek dengan |
+|---|---|---|
+| Node.js | LTS (20 atau 22) | `node -v` |
+| npm | ikut Node | `npm -v` |
+| JDK | 17 atau 21 | `java -version` |
+| Android Studio | versi stabil terbaru | — |
+| Android SDK Platform | 37 (compileSdk project) | SDK Manager |
+| Emulator (AVD) | contoh `Pixel_9_API_37` | Device Manager |
+
+`ANDROID_HOME` harus menunjuk ke folder SDK. Kalau belum ada:
+
+```powershell
+setx ANDROID_HOME "$env:LOCALAPPDATA\Android\Sdk"
+setx ANDROID_SDK_ROOT "$env:LOCALAPPDATA\Android\Sdk"
+```
+
+Tutup dan buka lagi terminal setelah `setx`. Pastikan `JAVA_HOME` juga menunjuk
+ke JDK 17/21, karena Gradle menolak JDK yang lebih lama.
+
+### 2. Install dependency
+
+```powershell
+npm install
+```
+
+### 3. Siapkan emulator dari Android Studio
+
+1. Buka Android Studio → **Tools → Device Manager**.
+2. Klik ▶ pada AVD yang ada (misalnya `Pixel_9_API_37`). Kalau belum punya,
+   **Create Virtual Device** → pilih Pixel 9 → system image **API 37
+   (x86_64)**.
+3. Tunggu sampai layar home Android muncul (bukan logo booting).
+4. Verifikasi dari terminal:
+
+```powershell
+adb devices
+```
+
+Status harus `device`, **bukan** `offline` atau kosong.
+
+> Kalau emulator stuck di `offline` (pernah terjadi di mesin ini), matikan lalu
+> jalankan cold boot:
+>
+> ```powershell
+> adb kill-server
+> & "$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe" -avd Pixel_9_API_37 -no-snapshot-load -no-boot-anim
+> ```
+
+### 4. Jalankan app
+
+**Cara A — development (hot reload, dipakai sehari-hari).**
+
+```powershell
+npx expo start
+```
+
+Metro jalan di `http://localhost:8081` dan **fast refresh aktif**: simpan file,
+layar emulator langsung berubah tanpa restart.
+
+Di terminal lain, sambungkan port Metro ke emulator lalu buka app:
+
+```powershell
+adb reverse tcp:8081 tcp:8081
+adb shell am start -n com.brewmate.v60/.MainActivity
+```
+
+Pertama kali, app harus dipasang dulu (boleh pakai APK debug yang sudah ada):
+
+```powershell
+adb install -r android\app\build\outputs\apk\debug\app-debug.apk
+```
+
+**Cara B — sekali perintah (build + install + Metro).**
+
+```powershell
+npx expo run:android
+```
+
+Perintah ini mengompilasi ulang bagian native lewat Gradle, jadi butuh waktu
+lebih lama. Lihat catatan penting di poin 6 kalau build native gagal.
+
+### 5. Perintah pemeriksaan
+
+```powershell
+npm run typecheck      # TypeScript strict, tanpa emit
+npm test               # perhitungan air, timeline, klik grinder, validasi
+npm run lint           # ESLint
+python scripts\verify-schema.py      # skema + semua query service di SQLite asli
+```
+
+### 6. Penting: nama folder mengandung karakter "–"
+
+Folder project ini bernama `Brewmate – V60 Coffee Companion` dengan **en dash**.
+Itu dua masalah sekaligus:
+
+1. Plugin Gradle-nya menolak melakukan konfigurasi pada path non-ASCII. Project
+   ini sudah menyiasatinya lewat `plugins/with-gradle-path-override.js`
+   (`android.overridePathCheck=true`).
+2. **Clang di NDK tetap gagal** membuka path tersebut, sehingga kompilasi C++
+   (misalnya `react-native-worklets`) berhenti dengan:
+
+   ```
+   fatal error: cannot open file
+   'C:/Users/.../Brewmate <96> V60 Coffee Companion/.../WorkletsPCH.h'
+   ```
+
+Selama foldernya masih bernama begitu, `npx expo run:android` **akan gagal**.
+Ada dua jalan keluar:
+
+- **Praktis:** jalankan `scripts/build-android.ps1` (lihat bawah). Script ini
+  menyalin project ke `%TEMP%\brewmate-native-build` yang path-nya ASCII murni,
+  build di sana, lalu mengembalikan APK-nya ke folder ini.
+- **Permanen:** pindahkan project ke path ASCII saja, contoh `C:\dev\brewmate`.
+  Setelah itu semua perintah Expo/`run:android` berjalan normal.
+
+### 7. Build APK
+
+Release (bisa dipasang mandiri, JS bundle ikut di dalamnya — ini yang dipakai
+untuk berbagi file APK):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-android.ps1 -Variant release
+```
+
+Debug (butuh Metro yang jalan di komputer, hanya untuk development):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-android.ps1
+```
+
+Hasilnya:
+
+```
+android\app\build\outputs\apk\release\app-release.apk
+android\app\build\outputs\apk\debug\app-debug.apk
+```
+
+Pasang ke emulator atau HP:
+
+```powershell
+adb install -r android\app\build\outputs\apk\release\app-release.apk
+```
+
+APK release ditandatangani dengan `debug.keystore` yang di-generate otomatis.
+Aman untuk dipasang sendiri (sideload), tapi buat keystore sendiri sebelum
+mengunggah ke Play Store.
+
+### 8. Masalah yang sering muncul
+
+| Gejala | Penyebab | Solusi |
+|---|---|---|
+| `adb devices` kosong | emulator belum selesai boot | tunggu, atau cold boot (poin 3) |
+| Emulator `offline` terus | snapshot rusak | `-no-snapshot-load`, atau **Wipe Data** di Device Manager |
+| Layar app stuck di splash | app tidak bisa menghubungi Metro | jalankan `adb reverse tcp:8081 tcp:8081`, pastikan Metro hidup |
+| `Unable to load script` | APK debug dibuka tanpa Metro | jalankan `npx expo start` atau pakai APK release |
+| Build gagal di `WorkletsPCH.h` | path en dash | pakai `scripts\build-android.ps1` (poin 6) |
+| `ninja: error: manifest ... too long` | ninja bawaan CMake 3.22.1 | sudah ditangani otomatis oleh script build |
+| Perubahan kode tidak muncul | Metro dalam mode CI | jalankan `npx expo start` tanpa `CI=1` |
+
+### 9. Data hilang saat uninstall
+
+Database SQLite disimpan di dalam sandbox app. **Uninstall = database terhapus.**
+Kalau riwayat brew penting, buka **Settings → Export** dulu dan simpan file
+JSON-nya.
+
+---
+
+## Getting started
+
+Requirements: Node.js LTS, npm, and (for the Android build) JDK 17+ with the
+Android SDK.
+
+```bash
+npm install
+npx expo start          # Metro; press "a" with a device/emulator attached
+```
+
+Checks:
+
+```bash
+npm run typecheck       # tsc --noEmit
+npm test                # calculator, timeline, grinder and validation checks
+npm run lint            # eslint
+python scripts/verify-schema.py     # schema + every service query against real SQLite
+npx expo export --platform android  # proves the production bundle compiles
+```
+
+---
+
+## Building the APK locally
+
+Build script (handles prebuild and the path check for you):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/build-android.ps1
+powershell -ExecutionPolicy Bypass -File scripts/build-android.ps1 -Variant release
+```
+
+Or by hand:
+
+```bash
+npx expo prebuild --platform android
+npx expo run:android            # builds and installs on a connected device
+```
+
+Standalone APKs:
+
+```powershell
+cd android
+.\gradlew.bat assembleDebug      # android/app/build/outputs/apk/debug/app-debug.apk
+.\gradlew.bat assembleRelease    # android/app/build/outputs/apk/release/app-release.apk
+```
+
+- **debug** is a development build: it expects Metro on your machine
+  (`npx expo start`), so it is not useful as a standalone install.
+- **release** embeds the JavaScript bundle and is signed with the generated
+  `debug.keystore`, so it installs and runs on its own. It is fine for personal
+  sideloading; generate your own keystore before publishing anywhere.
+
+### Windows build notes
+
+Two Windows-specific issues are handled by `scripts/build-android.ps1`:
+
+1. **Non-ASCII path.** Expo's Android plugin refuses to configure a project whose
+   path contains non-ASCII characters, and this folder name contains an en dash
+   (`–`). `plugins/with-gradle-path-override.js` writes
+   `android.overridePathCheck=true` into `android/gradle.properties` on every
+   `expo prebuild`, which satisfies the AGP check. That is not enough on its own:
+   clang under the NDK still cannot open such paths, so the script mirrors the
+   project to `%TEMP%\brewmate-native-build` and builds there.
+
+2. **Old ninja.** The ninja bundled with the SDK's CMake 3.22.1 hard-fails when an
+   object path exceeds 260 characters, and React Native's generated codegen paths
+   are around 320. The script detects a ninja older than 1.11, downloads a current
+   one, prepares a private copy of CMake and points `android/local.properties` at
+   it (`cmake.dir`). Renaming this folder to something ASCII-only removes the need
+   for step 1 but not for step 2.
+
+Notes:
+
+- `android/` and `ios/` are generated by `expo prebuild` (Continuous Native
+  Generation). Do not hand-edit them; change `app.json` instead.
+- Set `ANDROID_HOME` (e.g. `%LOCALAPPDATA%\Android\Sdk`) and make sure
+  `JAVA_HOME` points at a JDK that Gradle accepts (17/21 recommended).
+- Release signing is not configured. For a Play Store build you need a keystore
+  and a release `build.gradle`; debug builds are self-signed and fine for
+  sideloading.
+- The Android package id is `com.brewmate.v60`.
+
+---
+
+## Offline, privacy and data loss
+
+- No network calls, no analytics, no accounts. The app works in airplane mode.
+- Backups are plain JSON written to the app cache and handed to Android's share
+  sheet, so you choose where they go.
+- Restoring merges by id (existing rows with the same id are replaced).
+- **Uninstalling the app deletes the local database.** Export a backup first if
+  the history matters.
+
+---
+
+## Design notes
+
+- Palette: espresso `#35251E`, coffee `#604637`, cream `#F5F0E8`, warm white
+  `#FFFCF7`, muted gold `#C7A675`, soft grey `#8D8983`.
+- A single token file (`constants/theme.ts`) defines both themes; screens never
+  hard-code a colour. The hero cards and the timer use a fixed espresso "brand
+  surface" so the app keeps one signature in light and dark mode.
+- Type: system serif for headings, system sans for UI, monospace for timings —
+  no downloaded font, so first launch stays instant and offline.
+- Components are small and focused; screens compose them. No screen owns SQL —
+  all queries live in `services/`.
+
+---
+
+## Known limitations
+
+- The timer is a foreground experience. If Android kills the app while it is in
+  the background, the in-memory plan is lost (elapsed time itself is timestamp
+  based, so returning from the background within the app's lifetime is correct).
+- No notifications when a stage ends; the app relies on haptics and the visible
+  screen (which is kept awake).
+- Roast dates are typed as `yyyy-mm-dd` rather than picked from a calendar, to
+  avoid an extra native dependency.
+- iOS is not configured or tested; the target is Android.
+
+---
+
+## Disclaimer
+
+Starter recipes, the 5.0–8.0 S5 Pro reference and every default in this app are
+starting points for tasting, not prescriptions. Grind finer or coarser, change
+the temperature, and trust the cup.
