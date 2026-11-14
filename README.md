@@ -4,15 +4,20 @@ An offline-first Android app for Hario V60 pour-over brewing, built around the
 TIMEMORE Chestnut **S5 Pro** and **C5 Pro** hand grinders.
 
 Brewmate calculates your water, times your pours, keeps a grind log per coffee
-and remembers how the cup actually tasted. Everything lives in a local SQLite
+and remembers how the cup actually tasted. It also carries an offline brew guide
+with the reasoning behind the numbers. Everything lives in a local SQLite
 database — no account, no network, no tracking.
+
+**Current release:** [v1.1.0](https://github.com/agungkrishna-code/brewmate/releases/tag/v1.1.0)
+· [Download the APK](https://github.com/agungkrishna-code/brewmate/releases/download/v1.1.0/Brewmate-1.1.0.apk)
 
 ---
 
 ## What it does
 
 **Home** — a greeting, your last-used recipe, one-tap start, favourite recipes,
-recent coffees, brew stats and quick access to both grinder profiles.
+recent coffees, brew stats, quick access to both grinder profiles and a card for
+the brew guide.
 
 **Brew (calculator)** — dose, ratio, total water, temperature, bloom multiplier
 and any number of pour stages. Every stage is editable and the water always adds
@@ -43,8 +48,14 @@ grinder and grind setting, plus six 1–5 ratings (acidity, sweetness, bitternes
 body, clarity, aftertaste). Filter by grinder or coffee, compare two brews side
 by side, and see your aggregate stats.
 
+**Brew guide** — eight offline articles on V60 basics, grind dial-in, water and
+ratio, taste troubleshooting, bean freshness, pour technique, TIMEMORE
+calibration and the 4:6 method. Each article is written for the one-cup workflow
+the app supports and lists its own sources.
+
 **Settings** — light/dark/system theme, haptics, keep-awake, JSON export and
-restore.
+restore, plus a **Learn** section that opens the guide and the two
+troubleshooting articles.
 
 ## Screens
 
@@ -69,9 +80,19 @@ restore.
     <td align="center"><sub>Journal</sub></td>
     <td align="center"><sub>Recipe editor</sub></td>
   </tr>
+  <tr>
+    <td><img src="docs/guide.png" width="200" alt="Brew guide index" /></td>
+    <td><img src="docs/guide-article.png" width="200" alt="V60 guide article" /></td>
+    <td><img src="docs/settings.png" width="200" alt="Settings and Learn section" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Brew guide</sub></td>
+    <td align="center"><sub>V60 article</sub></td>
+    <td align="center"><sub>Settings</sub></td>
+  </tr>
 </table>
 
-Captured from the release APK on a Pixel 9 API 37 emulator.
+Captured from the v1.1.0 release APK on a Pixel 9 API 37 emulator.
 
 ---
 
@@ -123,6 +144,8 @@ src/
     recipes/new.tsx          new recipe (accepts a calculator prefill)
     recipes/edit.tsx         edit recipe
     beans/                   coffee list, create, edit
+    guide/index.tsx          brew guide index
+    guide/[slug].tsx         guide article
     grinders/[id].tsx        grinder detail + calibration
     grinders/new.tsx         custom grinder
     journal/[id].tsx         session detail + tasting review
@@ -132,7 +155,7 @@ src/
     common/                  text, screen, button, field, sheet, rating, …
     brewing/                 plan inputs, stage editor, stage list, timer ring
     recipes/  grinder/  journal/  beans/
-  constants/                 theme tokens, defaults, starter recipes
+  constants/                 theme tokens, defaults, starter recipes, guide content
   contexts/                  settings (preferences) and the in-memory brew draft
   database/                  schema, migrations, seeds, bootstrap
   hooks/                     use-brew-plan, use-brewing-timer, use-database, use-theme
@@ -140,7 +163,8 @@ src/
                              journal, preferences, backup
   types/                     grinder, coffee, recipe, brewing
   utils/                     calculations, grinder maths, formatting, validation
-tests/logic.test.ts          water maths, timeline, grinder clicks, validation
+tests/logic.test.ts          water maths, timeline, grinder clicks, validation,
+                             guide integrity
 ```
 
 ---
@@ -278,7 +302,7 @@ lebih lama. Lihat catatan penting di poin 6 kalau build native gagal.
 
 ```powershell
 npm run typecheck      # TypeScript strict, tanpa emit
-npm test               # perhitungan air, timeline, klik grinder, validasi
+npm test               # perhitungan air, timeline, klik grinder, validasi, guide
 npm run lint           # ESLint
 python scripts\verify-schema.py      # skema + semua query service di SQLite asli
 ```
@@ -374,7 +398,7 @@ Checks:
 
 ```bash
 npm run typecheck       # tsc --noEmit
-npm test                # calculator, timeline, grinder and validation checks
+npm test                # calculator, timeline, grinder, validation and guide checks
 npm run lint            # eslint
 python scripts/verify-schema.py     # schema + every service query against real SQLite
 npx expo export --platform android  # proves the production bundle compiles
@@ -447,6 +471,8 @@ Notes:
 ## Offline, privacy and data loss
 
 - No network calls, no analytics, no accounts. The app works in airplane mode.
+- The brew guide is bundled static content. Sources are named in each article;
+  nothing is fetched at runtime.
 - Backups are plain JSON written to the app cache and handed to Android's share
   sheet, so you choose where they go.
 - Restoring merges by id (existing rows with the same id are replaced).
@@ -478,6 +504,8 @@ Notes:
   screen (which is kept awake).
 - Roast dates are typed as `yyyy-mm-dd` rather than picked from a calendar, to
   avoid an extra native dependency.
+- The brew guide is static content. Corrections ship with an app update, and its
+  sources are listed as text rather than clickable links.
 - iOS is not configured or tested; the target is Android.
 
 ---
