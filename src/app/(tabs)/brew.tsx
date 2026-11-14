@@ -8,7 +8,7 @@ import { Screen } from '@/components/common/screen';
 import { SectionHeader } from '@/components/common/section';
 import { OptionSheet } from '@/components/common/sheet';
 import { AppText } from '@/components/common/text';
-import { BrandSurface, Spacing } from '@/constants/theme';
+import { BrandSurface, Radius, Spacing } from '@/constants/theme';
 import { useBrewDraft } from '@/contexts/brew-draft-context';
 import { useSettings } from '@/contexts/settings-context';
 import { useFocusedQuery } from '@/hooks/use-database';
@@ -20,7 +20,14 @@ import {
   formatRatio,
   formatWeight,
 } from '@/utils/formatting';
-import { clicksForSetting, referenceRangeLabel, settingDetail, unitLabel } from '@/utils/grinder';
+import {
+  clicksForSetting,
+  referenceRangeLabel,
+  referenceStatus,
+  settingDetail,
+  unitLabel,
+} from '@/utils/grinder';
+import { Ionicons } from '@/components/common/icon';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -29,7 +36,7 @@ export default function BrewScreen() {
   const theme = useTheme();
   const plan = useBrewPlan();
   const { beginBrew } = useBrewDraft();
-  const { preferences } = useSettings();
+  const { preferences, setLastGrinderId } = useSettings();
 
   const { data } = useFocusedQuery(async (db) => ({ grinders: await listGrinders(db) }));
   const grinders = useMemo(() => data?.grinders ?? [], [data]);
@@ -48,8 +55,20 @@ export default function BrewScreen() {
 
   const grinder = grinders.find((item) => item.id === grinderId) ?? null;
   const pourCount = plan.pours.length;
+  const rangeState = grinder ? referenceStatus(grinder, grindSetting) : 'none';
+  const rangeStatusText =
+    rangeState === 'inside'
+      ? 'Within V60 range'
+      : rangeState === 'below'
+        ? 'Finer than V60 range'
+        : rangeState === 'above'
+          ? 'Coarser than V60 range'
+          : null;
 
   const start = () => {
+    if (grinderId) {
+      setLastGrinderId(grinderId).catch(() => undefined);
+    }
     beginBrew({
       recipeId: null,
       recipeName: 'Calculator brew',
@@ -115,11 +134,21 @@ export default function BrewScreen() {
             Dial in your V60, then follow it step by step.
           </AppText>
         </View>
-        <IconButton
-          icon="bookmark-outline"
-          label="Save this plan as a recipe"
-          onPress={saveAsRecipe}
-        />
+        <View style={styles.headerActions}>
+          <IconButton
+            icon="refresh"
+            label="Reset calculator"
+            onPress={() => {
+              plan.reset();
+              setGrindSetting(null);
+            }}
+          />
+          <IconButton
+            icon="bookmark-outline"
+            label="Save this plan as a recipe"
+            onPress={saveAsRecipe}
+          />
+        </View>
       </View>
 
       <BrandCard style={styles.summary}>
@@ -180,7 +209,7 @@ export default function BrewScreen() {
                   grindSetting != null ? settingDetail(grinder, grindSetting) : null,
                   referenceRangeLabel(grinder)
                     ? `Published reference: ${referenceRangeLabel(grinder)}`
-                    : 'No published reference — record your own.',
+                    : 'No published reference. Record your own.',
                 ]
                   .filter(Boolean)
                   .join(' · ')
@@ -188,16 +217,51 @@ export default function BrewScreen() {
           }
         />
         {grinder && grindSetting != null ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Clear the grind setting"
-            onPress={() => setGrindSetting(null)}
-            style={({ pressed }) => [styles.clearRow, { opacity: pressed ? 0.6 : 1 }]}>
-            <AppText variant="caption" tone="faint">
-              {clicksForSetting(grinder, grindSetting)} clicks on the {grinder.name}
+          <View style={styles.grindMetaRow}>
+            <AppText variant="caption" tone="muted" style={styles.flex}>
+              {[
+                `${clicksForSetting(grinder, grindSetting)} clicks on ${grinder.name}`,
+                rangeStatusText,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </AppText>
-          </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear the grind setting"
+              hitSlop={8}
+              onPress={() => setGrindSetting(null)}
+              style={({ pressed }) => [styles.clearButton, { opacity: pressed ? 0.6 : 1 }]}>
+              <Ionicons name="close-circle-outline" size={14} color={theme.primary} />
+              <AppText variant="caption" tone="primary">
+                Clear
+              </AppText>
+            </Pressable>
+          </View>
         ) : null}
+      </View>
+
+      <View style={styles.section}>
+        <SectionHeader
+          title="Reading the numbers"
+          subtitle="What each control changes"
+          actionLabel="Guide"
+          onAction={() => router.push('/guide/water-and-ratio')}
+        />
+        <View style={[styles.tipCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <TipRow
+            label="Ratio"
+            text="Sets strength. 1:15 is heavier, 1:17 is lighter. It is not the tool for fixing sour or bitter coffee."
+          />
+          <TipRow
+            label="Temperature"
+            text="Sets extraction speed. Light roasts are happier at 94 to 96°C; dark roasts at 88 to 92°C."
+          />
+          <TipRow
+            label="Grind"
+            text="Sets flow and extraction. Change it one click at a time, with everything else held still."
+          />
+        </View>
       </View>
 
       <OptionSheet
@@ -214,9 +278,21 @@ export default function BrewScreen() {
         onSelect={(value) => {
           setSelectedGrinderId(value);
           setGrindSetting(null);
+          setLastGrinderId(value).catch(() => undefined);
         }}
       />
     </Screen>
+  );
+}
+
+function TipRow({ label, text }: { label: string; text: string }) {
+  return (
+    <View style={styles.tipRow}>
+      <AppText variant="caption" tone="faint">
+        {label}
+      </AppText>
+      <AppText variant="small">{text}</AppText>
+    </View>
   );
 }
 
@@ -227,13 +303,30 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingTop: Spacing.lg,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   subtitle: { marginTop: Spacing.xs },
   summary: { marginTop: Spacing.xl, gap: Spacing.xs },
   summaryTitle: { marginTop: Spacing.xs },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: Spacing.md },
   section: { marginTop: Spacing.xxl },
   grinderSpacer: { height: Spacing.md },
-  clearRow: { paddingTop: Spacing.sm, alignSelf: 'flex-start' },
+  grindMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    paddingTop: Spacing.sm,
+  },
+  clearButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
+  },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -244,5 +337,12 @@ const styles = StyleSheet.create({
   },
   footerText: { gap: 1 },
   footerButton: { flex: 1 },
+  tipCard: {
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  tipRow: { gap: 2 },
   flex: { flex: 1 },
 });

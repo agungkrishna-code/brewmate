@@ -3,6 +3,7 @@
 import {
   PREFERENCE_KEYS,
   readPreferences,
+  removePreference,
   setPreference,
   type Preferences,
 } from '@/services/preferences';
@@ -32,6 +33,7 @@ interface SettingsContextValue {
   setThemeMode: (mode: ThemePreference) => Promise<void>;
   setHaptics: (enabled: boolean) => Promise<void>;
   setKeepAwake: (enabled: boolean) => Promise<void>;
+  setLastGrinderId: (id: string | null) => Promise<void>;
   reload: () => Promise<void>;
 }
 
@@ -80,6 +82,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       if (patch.lastGrinderId !== undefined) {
         if (patch.lastGrinderId) {
           await setPreference(db, PREFERENCE_KEYS.lastGrinderId, patch.lastGrinderId);
+        } else {
+          await removePreference(db, PREFERENCE_KEYS.lastGrinderId);
         }
       }
     },
@@ -94,6 +98,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setThemeMode: (mode) => update({ themeMode: mode }),
       setHaptics: (enabled) => update({ haptics: enabled }),
       setKeepAwake: (enabled) => update({ keepAwake: enabled }),
+      setLastGrinderId: (id) => update({ lastGrinderId: id }),
       reload: load,
     }),
     [preferences, ready, update, load]

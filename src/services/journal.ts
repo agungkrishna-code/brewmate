@@ -187,7 +187,7 @@ export async function createSession(
         draft.coffeeBeanId,
         beanName,
         draft.recipeId,
-        recipeName,
+        recipeName ?? (draft.recipeNameFallback?.trim() || null),
         draft.grinderProfileId,
         grinderName,
         draft.grindSetting,

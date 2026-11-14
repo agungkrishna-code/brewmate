@@ -7,9 +7,10 @@ import { NumberField } from '../common/field';
 
 interface PlanInputsProps {
   plan: BrewPlan;
+  errors?: Partial<Record<'coffeeDoseG' | 'ratio' | 'waterTempC', string>>;
 }
 
-export function PlanInputs({ plan }: PlanInputsProps) {
+export function PlanInputs({ plan, errors }: PlanInputsProps) {
   return (
     <View style={styles.root}>
       <View style={styles.row}>
@@ -24,6 +25,7 @@ export function PlanInputs({ plan }: PlanInputsProps) {
           min={5}
           max={60}
           stepper
+          error={errors?.coffeeDoseG}
           style={styles.flex}
         />
         <NumberField
@@ -37,6 +39,7 @@ export function PlanInputs({ plan }: PlanInputsProps) {
           decimals={2}
           min={5}
           max={30}
+          error={errors?.ratio}
           style={styles.flex}
         />
       </View>
@@ -76,6 +79,7 @@ export function PlanInputs({ plan }: PlanInputsProps) {
           step={1}
           min={60}
           max={100}
+          error={errors?.waterTempC}
           style={styles.flex}
         />
       </View>

@@ -59,6 +59,17 @@ export interface BrewPlan extends PlanState {
   reset: () => void;
 }
 
+const DEFAULT_POUR_LABEL_RE =
+  /^(?:(?:Single|Final|First|Second|Third|Fourth|Fifth|Sixth)\s+pour|Pour\s+\d+)$/i;
+
+function syncPourLabel(currentLabel: string, index: number, count: number): string {
+  const trimmed = currentLabel.trim();
+  if (!trimmed || DEFAULT_POUR_LABEL_RE.test(trimmed)) {
+    return pourLabel(index, count);
+  }
+  return currentLabel;
+}
+
 function remainingFor(state: PlanState): number {
   return round1(state.totalWaterG - bloomWaterFor(state.doseG, state.bloomMultiplier));
 }
@@ -302,7 +313,7 @@ export function useBrewPlan(recipe?: BrewRecipe | null): BrewPlan {
       return {
         ...previous,
         pours: pours.map((pour, index) => ({
-          label: pour.label || pourLabel(index, count),
+          label: syncPourLabel(pour.label, index, count),
           amountG: even[index],
           durationS: pour.durationS,
         })),
@@ -315,10 +326,15 @@ export function useBrewPlan(recipe?: BrewRecipe | null): BrewPlan {
       if (previous.pours.length <= 1) return previous;
       const remaining = remainingFor(previous);
       const pours = previous.pours.filter((_, position) => position !== index);
-      const even = distributeWater(remaining, pours.length);
+      const count = pours.length;
+      const even = distributeWater(remaining, count);
       return {
         ...previous,
-        pours: pours.map((pour, position) => ({ ...pour, amountG: even[position] })),
+        pours: pours.map((pour, position) => ({
+          ...pour,
+          label: syncPourLabel(pour.label, position, count),
+          amountG: even[position],
+        })),
       };
     });
   }, []);

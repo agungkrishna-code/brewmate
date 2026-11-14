@@ -90,15 +90,18 @@ export function useBrewingTimer({
   const finish = useCallback(() => {
     if (completedRef.current) return;
     completedRef.current = true;
+    const currentMs = readElapsed();
+    const targetMs = totalDurationS * 1000;
+    const finalMs = currentMs > 0 ? Math.min(currentMs, targetMs) : targetMs;
     runStartRef.current = null;
-    offsetRef.current = totalDurationS * 1000;
-    setElapsedMs(totalDurationS * 1000);
+    offsetRef.current = finalMs;
+    setElapsedMs(finalMs);
     setStatus('finished');
     if (hapticsEnabled) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
     }
     onCompleteRef.current?.();
-  }, [hapticsEnabled, totalDurationS]);
+  }, [hapticsEnabled, readElapsed, totalDurationS]);
 
   const start = useCallback(() => {
     completedRef.current = false;
@@ -142,17 +145,18 @@ export function useBrewingTimer({
   }, []);
 
   const skipStage = useCallback(() => {
-    if (stages.length === 0) return;
+    if (stages.length === 0 || status === 'idle' || status === 'finished') return;
     const elapsedS = readElapsed() / 1000;
     const index = stageIndexAt(elapsedS, stages);
     const next = stages[index + 1];
     if (!next) {
+      seek(totalDurationS * 1000);
       finish();
       return;
     }
     seek(next.startS * 1000);
     hapticTap(hapticsEnabled);
-  }, [finish, hapticsEnabled, readElapsed, seek, stages]);
+  }, [finish, hapticsEnabled, readElapsed, seek, stages, status, totalDurationS]);
 
   // Re-render while running; the value itself comes from timestamps.
   useEffect(() => {
@@ -205,7 +209,7 @@ export function useBrewingTimer({
     nextStage,
     stageRemainingS: activeStage ? Math.max(0, activeStage.endS - elapsedS) : 0,
     totalRemainingS: Math.max(0, totalDurationS - elapsedS),
-    progress: brewProgress(elapsedS, stages),
+    progress: status === 'finished' ? 100 : brewProgress(elapsedS, stages),
     isRunning: status === 'running',
     isPaused: status === 'paused',
     isFinished: status === 'finished',

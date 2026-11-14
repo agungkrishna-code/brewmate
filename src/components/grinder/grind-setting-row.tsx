@@ -50,6 +50,11 @@ export function GrindSettingRow({
             {settingDetail(grinder, setting.settingValue)}
           </AppText>
         ) : null}
+        {setting.notes ? (
+          <AppText variant="caption" tone="muted" numberOfLines={2}>
+            {setting.notes}
+          </AppText>
+        ) : null}
         <View style={styles.meta}>
           {setting.recipeName ? (
             <View style={styles.metaItem}>

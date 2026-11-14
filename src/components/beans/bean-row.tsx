@@ -2,7 +2,7 @@ import type { CoffeeBeanWithStats } from '@/types';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatDateShort, formatRating } from '@/utils/formatting';
+import { formatDateShort, formatRating, formatRoastDate } from '@/utils/formatting';
 import { Ionicons } from '../common/icon';
 import { AppText } from '../common/text';
 
@@ -13,7 +13,14 @@ interface BeanRowProps {
 
 export function BeanRow({ bean, onPress }: BeanRowProps) {
   const theme = useTheme();
-  const origin = [bean.region, bean.country].filter(Boolean).join(', ');
+  const origin = bean.origin || [bean.region, bean.country].filter(Boolean).join(', ');
+  const brewMeta =
+    bean.sessionCount === 0
+      ? 'Not brewed yet'
+      : `${bean.sessionCount} brew${bean.sessionCount === 1 ? '' : 's'} · last ${formatDateShort(
+          bean.lastBrewedAt
+        )}`;
+  const roastMeta = bean.roastDate ? `Roasted ${formatRoastDate(bean.roastDate)}` : null;
 
   return (
     <Pressable
@@ -41,12 +48,8 @@ export function BeanRow({ bean, onPress }: BeanRowProps) {
         <AppText variant="caption" tone="muted" numberOfLines={1}>
           {[origin, bean.process, bean.roastLevel].filter(Boolean).join(' · ')}
         </AppText>
-        <AppText variant="caption" tone="faint">
-          {bean.sessionCount === 0
-            ? 'Not brewed yet'
-            : `${bean.sessionCount} brew${bean.sessionCount === 1 ? '' : 's'} · last ${formatDateShort(
-                bean.lastBrewedAt
-              )}`}
+        <AppText variant="caption" tone="faint" numberOfLines={1}>
+          {[brewMeta, roastMeta].filter(Boolean).join(' · ')}
         </AppText>
       </View>
 

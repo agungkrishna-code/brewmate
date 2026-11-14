@@ -128,7 +128,7 @@ export default function HomeScreen() {
         <StatTile value={String(stats?.sessionCount ?? 0)} label="Brews logged" />
         <StatTile value={String(data?.favorites.length ?? 0)} label="Favourite recipes" />
         <StatTile
-          value={stats?.averageRating != null ? formatRating(stats.averageRating) : '—'}
+          value={stats?.averageRating != null ? formatRating(stats.averageRating) : '–'}
           label="Average cup"
         />
       </View>
@@ -235,6 +235,30 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Open the brew guide"
+        onPress={() => router.push('/guide')}
+        style={({ pressed }) => [
+          styles.guideCard,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            opacity: pressed ? 0.85 : 1,
+          },
+        ]}>
+        <View style={[styles.guideIcon, { backgroundColor: theme.goldSoft }]}>
+          <Ionicons name="book-outline" size={18} color={theme.gold} />
+        </View>
+        <View style={styles.flex}>
+          <AppText variant="bodyStrong">Brew guide</AppText>
+          <AppText variant="caption" tone="muted">
+            V60 basics, dial-in, water, taste and beans
+          </AppText>
+        </View>
+        <Ionicons name="chevron-forward" size={15} color={theme.textFaint} />
+      </Pressable>
+
       <AppText variant="caption" tone="faint" align="center" style={styles.footerNote}>
         Offline by design · everything stays on this device
       </AppText>
@@ -276,6 +300,22 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   grinderIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guideCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginTop: Spacing.xxl,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  guideIcon: {
     width: 38,
     height: 38,
     borderRadius: Radius.sm,

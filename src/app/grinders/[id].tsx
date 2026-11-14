@@ -8,6 +8,7 @@ import { GrindSettingRow } from '@/components/grinder/grind-setting-row';
 import { GrindSettingSheet } from '@/components/grinder/grind-setting-sheet';
 import { DISCLAIMERS } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
+import { useSettings } from '@/contexts/settings-context';
 import { useDatabase, useFocusedQuery } from '@/hooks/use-database';
 import { useTheme } from '@/hooks/use-theme';
 import { listBeans } from '@/services/beans';
@@ -22,13 +23,15 @@ import {
 import { listRecipeSummaries } from '@/services/recipes';
 import type { GrinderDraft, GrinderProfile } from '@/types';
 import { referenceRangeLabel, unitLabel } from '@/utils/grinder';
+import { validateGrinder } from '@/utils/validation';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
 export default function GrinderDetailScreen() {
   const theme = useTheme();
   const db = useDatabase();
+  const { preferences, setLastGrinderId } = useSettings();
   const { id } = useLocalSearchParams<{ id: string }>();
   const grinderId = typeof id === 'string' ? id : '';
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -60,12 +63,15 @@ export default function GrinderDetailScreen() {
           style: 'destructive',
           onPress: async () => {
             await deleteGrinder(db, data.grinder.id);
+            if (preferences.lastGrinderId === data.grinder.id) {
+              await setLastGrinderId(null);
+            }
             router.back();
           },
         },
       ]
     );
-  }, [data, db]);
+  }, [data, db, preferences.lastGrinderId, setLastGrinderId]);
 
   const confirmDeleteSetting = useCallback(
     (settingId: string) => {
@@ -202,11 +208,18 @@ function CalibrationForm({
   const [preferredMin, setPreferredMin] = useState<number | null>(grinder.preferredMin);
   const [preferredMax, setPreferredMax] = useState<number | null>(grinder.preferredMax);
   const [notes, setNotes] = useState(grinder.notes ?? '');
+  const [rangeError, setRangeError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const [saving, setSaving] = useState(false);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    };
+  }, []);
 
   const save = async () => {
-    setSaving(true);
     const draft: GrinderDraft = {
       name: grinder.name,
       brand: grinder.brand,
@@ -222,10 +235,18 @@ function CalibrationForm({
       preferredMax,
       notes: notes.trim() || null,
     };
+    const errors = validateGrinder(draft);
+    if (errors.preferredRange) {
+      setRangeError(errors.preferredRange);
+      return;
+    }
+    setRangeError(null);
+    setSaving(true);
     try {
       await updateGrinder(db, grinder.id, draft);
       setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 1800);
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = setTimeout(() => setSavedFlash(false), 1800);
       onSaved();
     } catch (caught) {
       Alert.alert(
@@ -250,8 +271,10 @@ function CalibrationForm({
           onChange={setPreferredMin}
           suffix={unitLabel(grinder, preferredMin)}
           step={0.5}
+          min={0}
           decimals={2}
-          placeholder="—"
+          placeholder="–"
+          error={rangeError ?? undefined}
           style={styles.flex}
         />
         <NumberField
@@ -260,8 +283,9 @@ function CalibrationForm({
           onChange={setPreferredMax}
           suffix={unitLabel(grinder, preferredMax)}
           step={0.5}
+          min={0}
           decimals={2}
-          placeholder="—"
+          placeholder="–"
           style={styles.flex}
         />
       </View>

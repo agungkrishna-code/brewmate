@@ -1,6 +1,7 @@
 /** Validation shared by forms and by the brewing engine. */
 
 import type { BrewRecipe, CoffeeBeanDraft, GrinderDraft, PourStep } from '@/types';
+import { parseIsoDateOnly } from './formatting';
 
 export type ValidationErrors<T extends string = string> = Partial<Record<T, string>>;
 
@@ -70,20 +71,50 @@ export type BeanErrorKey = 'name' | 'roastDate';
 export function validateBean(input: CoffeeBeanDraft): ValidationErrors<BeanErrorKey> {
   const errors: ValidationErrors<BeanErrorKey> = {};
   if (input.name.trim().length === 0) errors.name = 'Coffee name is required.';
-  if (input.roastDate) {
-    const date = new Date(input.roastDate);
-    if (Number.isNaN(date.getTime())) errors.roastDate = 'Use a valid date.';
+  if (input.roastDate && input.roastDate.trim().length > 0) {
+    if (!parseIsoDateOnly(input.roastDate.trim())) {
+      errors.roastDate = 'Use a valid date (yyyy-mm-dd).';
+    }
   }
   return errors;
 }
 
-export type GrinderErrorKey = 'name' | 'clicksPerRotation' | 'micronsPerClick';
+export type GrinderErrorKey =
+  | 'name'
+  | 'clicksPerRotation'
+  | 'micronsPerClick'
+  | 'referenceRange'
+  | 'preferredRange';
 
 export function validateGrinder(input: GrinderDraft): ValidationErrors<GrinderErrorKey> {
   const errors: ValidationErrors<GrinderErrorKey> = {};
   if (input.name.trim().length === 0) errors.name = 'Grinder name is required.';
   if (input.clicksPerRotation <= 0) errors.clicksPerRotation = 'Must be greater than 0.';
   if (input.micronsPerClick <= 0) errors.micronsPerClick = 'Must be greater than 0 µm.';
+  if (
+    (input.referenceMin != null && input.referenceMin < 0) ||
+    (input.referenceMax != null && input.referenceMax < 0)
+  ) {
+    errors.referenceRange = 'Reference values cannot be negative.';
+  } else if (
+    input.referenceMin != null &&
+    input.referenceMax != null &&
+    input.referenceMin > input.referenceMax
+  ) {
+    errors.referenceRange = 'From must be less than or equal to To.';
+  }
+  if (
+    (input.preferredMin != null && input.preferredMin < 0) ||
+    (input.preferredMax != null && input.preferredMax < 0)
+  ) {
+    errors.preferredRange = 'Calibration values cannot be negative.';
+  } else if (
+    input.preferredMin != null &&
+    input.preferredMax != null &&
+    input.preferredMin > input.preferredMax
+  ) {
+    errors.preferredRange = 'From must be less than or equal to To.';
+  }
   return errors;
 }
 

@@ -36,26 +36,26 @@ function toDate(value: string | Date): Date | null {
 }
 
 export function formatWeight(grams: number | null | undefined, withUnit = false): string {
-  if (grams == null || !Number.isFinite(grams)) return '—';
+  if (grams == null || !Number.isFinite(grams)) return '–';
   const rounded = Math.round(grams * 10) / 10;
   const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
   return withUnit ? `${text} g` : text;
 }
 
 export function formatRatio(ratio: number | null | undefined): string {
-  if (ratio == null || !Number.isFinite(ratio) || ratio <= 0) return '—';
+  if (ratio == null || !Number.isFinite(ratio) || ratio <= 0) return '–';
   const rounded = Math.round(ratio * 100) / 100;
   const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0$/, '');
   return `1:${text}`;
 }
 
 export function formatTemperature(celsius: number | null | undefined): string {
-  if (celsius == null || !Number.isFinite(celsius)) return '—';
+  if (celsius == null || !Number.isFinite(celsius)) return '–';
   return `${Math.round(celsius * 10) / 10} °C`;
 }
 
 export function formatDuration(seconds: number | null | undefined): string {
-  if (seconds == null || !Number.isFinite(seconds)) return '—';
+  if (seconds == null || !Number.isFinite(seconds)) return '–';
   const safe = Math.max(0, Math.round(seconds));
   const minutes = Math.floor(safe / 60);
   const rest = safe % 60;
@@ -63,7 +63,7 @@ export function formatDuration(seconds: number | null | undefined): string {
 }
 
 export function formatDurationLong(seconds: number | null | undefined): string {
-  if (seconds == null || !Number.isFinite(seconds)) return '—';
+  if (seconds == null || !Number.isFinite(seconds)) return '–';
   const safe = Math.max(0, Math.round(seconds));
   const minutes = Math.floor(safe / 60);
   const rest = safe % 60;
@@ -81,32 +81,32 @@ export function formatStopwatch(milliseconds: number): string {
 }
 
 export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '–';
   const date = toDate(iso);
-  if (!date) return '—';
+  if (!date) return '–';
   return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 export function formatDateShort(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '–';
   const date = toDate(iso);
-  if (!date) return '—';
+  if (!date) return '–';
   return `${date.getDate()} ${MONTHS[date.getMonth()]}`;
 }
 
 export function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '–';
   const date = toDate(iso);
-  if (!date) return '—';
+  if (!date) return '–';
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${formatDate(iso)} · ${hours}:${minutes}`;
 }
 
 export function formatMonthYear(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '–';
   const date = toDate(iso);
-  if (!date) return '—';
+  if (!date) return '–';
   return `${MONTHS_LONG[date.getMonth()]} ${date.getFullYear()}`;
 }
 
@@ -122,7 +122,7 @@ export function formatRoastDate(iso: string | null | undefined): string {
 }
 
 export function formatRating(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return '—';
+  if (value == null || !Number.isFinite(value)) return '–';
   return (Math.round(value * 10) / 10).toFixed(1);
 }
 
@@ -149,10 +149,18 @@ export function greeting(date = new Date()): string {
 /** "yyyy-mm-dd" -> Date at local midnight, or null. */
 export function parseIsoDateOnly(value: string | null): Date | null {
   if (!value) return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) {
-    const fallback = new Date(value);
-    return Number.isNaN(fallback.getTime()) ? null : fallback;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
   }
-  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return date;
 }

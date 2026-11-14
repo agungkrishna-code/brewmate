@@ -170,10 +170,10 @@ export function RecipeForm({ initialRecipe, prefill }: RecipeFormProps) {
         </AppText>
       </View>
 
-      {saveError ? (
+      {saveError || Object.values(errors).some(Boolean) ? (
         <View style={[styles.banner, { backgroundColor: theme.dangerSoft }]}>
           <AppText variant="small" tone="danger">
-            {saveError}
+            {saveError ?? Object.values(errors).find(Boolean)}
           </AppText>
         </View>
       ) : null}
@@ -201,7 +201,7 @@ export function RecipeForm({ initialRecipe, prefill }: RecipeFormProps) {
 
       <View style={styles.section}>
         <SectionHeader title="Coffee & water" />
-        <PlanInputs plan={plan} />
+        <PlanInputs plan={plan} errors={errors} />
       </View>
 
       <View style={styles.section}>
@@ -209,9 +209,11 @@ export function RecipeForm({ initialRecipe, prefill }: RecipeFormProps) {
           title="Bloom & pours"
           subtitle="Water always adds up to the total above"
         />
-        {errors.steps ? (
+        {errors.steps || errors.bloomMultiplier || errors.bloomDurationS ? (
           <AppText variant="caption" tone="danger" style={styles.stepError}>
-            {errors.steps}
+            {[errors.steps, errors.bloomMultiplier, errors.bloomDurationS]
+              .filter(Boolean)
+              .join(' ')}
           </AppText>
         ) : null}
         <StageEditor plan={plan} />
@@ -224,7 +226,7 @@ export function RecipeForm({ initialRecipe, prefill }: RecipeFormProps) {
           value={grinder?.name ?? 'No grinder selected'}
           icon="disc-outline"
           onPress={() => setGrinderSheetOpen(true)}
-          hint="Optional — you can also record the grind when you brew."
+          hint="Optional. You can also record the grind when you brew."
         />
         <View style={styles.gap} />
         <NumberField

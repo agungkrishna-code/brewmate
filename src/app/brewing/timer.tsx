@@ -64,7 +64,8 @@ function EmptyTimer({ onBack }: { onBack: () => void }) {
 function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => void }) {
   const insets = useSafeAreaInsets();
   const db = useDatabase();
-  const { preferences } = useSettings();
+  const theme = useTheme();
+  const { preferences, setLastGrinderId } = useSettings();
   const hapticsEnabled = preferences.haptics;
 
   const stages = useMemo(() => buildTimeline(draft.steps), [draft.steps]);
@@ -150,6 +151,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
         brewedAt: new Date().toISOString(),
         coffeeBeanId: beanId,
         recipeId: draft.recipeId,
+        recipeNameFallback: draft.recipeName,
         grinderProfileId: grinderId,
         grindSetting,
         coffeeDoseG: draft.coffeeDoseG,
@@ -163,6 +165,9 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
         ratings,
         steps: draft.steps,
       });
+      if (grinderId) {
+        await setLastGrinderId(grinderId);
+      }
       setSheetOpen(false);
       onLeave();
       router.replace(`/journal/${id}`);
@@ -183,6 +188,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
     notes,
     onLeave,
     ratings,
+    setLastGrinderId,
     timer.elapsedS,
     timer.totalDurationS,
   ]);
@@ -194,7 +200,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
     timer.status === 'idle'
       ? 'Ready when you are'
       : timer.status === 'paused'
-        ? 'Paused — take your time'
+        ? 'Paused, take your time'
         : timer.status === 'finished'
           ? 'Brew complete'
           : `Stage ${timer.activeIndex + 1} of ${stages.length}`;
@@ -222,9 +228,14 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Reset the timer"
+          accessibilityState={{ disabled: timer.status === 'idle' }}
+          disabled={timer.status === 'idle'}
           hitSlop={10}
           onPress={timer.reset}
-          style={({ pressed }) => [styles.headerButton, { opacity: pressed ? 0.6 : 1 }]}>
+          style={({ pressed }) => [
+            styles.headerButton,
+            { opacity: timer.status === 'idle' ? 0.35 : pressed ? 0.6 : 1 },
+          ]}>
           <Ionicons name="refresh" size={20} color={BrandSurface.muted} />
         </Pressable>
       </View>
@@ -321,7 +332,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
                 Brew complete
               </AppText>
               <AppText variant="caption" color={BrandSurface.muted}>
-                {formatDuration(timer.totalDurationS)} ·{' '}
+                {formatDuration(timer.elapsedS || timer.totalDurationS)} ·{' '}
                 {formatWeight(draft.coffeeDoseG * draft.ratio, true)} water ·{' '}
                 {formatWeight(draft.coffeeDoseG, true)} coffee
               </AppText>
@@ -372,6 +383,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
                 label="Skip stage"
                 icon="play-skip-forward"
                 variant="ghost"
+                disabled={timer.status === 'idle'}
                 onPress={timer.skipStage}
                 style={styles.flex}
               />
@@ -379,21 +391,38 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
                 label="Reset"
                 icon="refresh"
                 variant="ghost"
+                disabled={timer.status === 'idle'}
                 onPress={timer.reset}
                 style={styles.flex}
               />
             </View>
+            {timer.status !== 'idle' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Finish brew now"
+                onPress={timer.finish}
+                style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.6 : 1 }]}>
+                <AppText variant="caption" color={BrandSurface.muted}>
+                  Finish brew
+                </AppText>
+              </Pressable>
+            ) : null}
           </>
         )}
       </View>
 
       <BottomSheet
         visible={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+        onClose={() => {
+          setPicker(null);
+          setSheetOpen(false);
+        }}
         title="Save this brew"
         subtitle="Add the details you will want next time."
         footer={
-          <Button label="Save to journal" onPress={saveSession} loading={saving} size="lg" fullWidth />
+          picker === null ? (
+            <Button label="Save to journal" onPress={saveSession} loading={saving} size="lg" fullWidth />
+          ) : undefined
         }>
         {picker === null ? (
           <View style={styles.form}>
@@ -450,8 +479,8 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
               accessibilityLabel="Back"
               onPress={() => setPicker(null)}
               style={({ pressed }) => [styles.pickerBack, { opacity: pressed ? 0.6 : 1 }]}>
-              <Ionicons name="chevron-back" size={16} color={BrandSurface.muted} />
-              <AppText variant="small" color={BrandSurface.muted}>
+              <Ionicons name="chevron-back" size={16} color={theme.textMuted} />
+              <AppText variant="small" tone="muted">
                 Back
               </AppText>
             </Pressable>

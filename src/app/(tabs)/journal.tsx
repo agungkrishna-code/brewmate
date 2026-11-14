@@ -7,8 +7,9 @@ import { OptionSheet } from '@/components/common/sheet';
 import { StatTile } from '@/components/common/stat';
 import { AppText } from '@/components/common/text';
 import { SessionCard } from '@/components/journal/session-card';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useFocusedQuery } from '@/hooks/use-database';
+import { useTheme } from '@/hooks/use-theme';
 import { listBeans } from '@/services/beans';
 import { listGrinders } from '@/services/grinders';
 import { getBrewStats, listSessions } from '@/services/journal';
@@ -18,6 +19,7 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export default function JournalScreen() {
+  const theme = useTheme();
   const [grinderFilter, setGrinderFilter] = useState<string | null>(null);
   const [beanFilter, setBeanFilter] = useState<string | null>(null);
   const [grinderSheet, setGrinderSheet] = useState(false);
@@ -74,11 +76,11 @@ export default function JournalScreen() {
       <View style={styles.statsRow}>
         <StatTile value={String(stats?.sessionCount ?? 0)} label="Brews" />
         <StatTile
-          value={stats?.averageRating != null ? formatRating(stats.averageRating) : '—'}
+          value={stats?.averageRating != null ? formatRating(stats.averageRating) : '–'}
           label="Average cup"
         />
         <StatTile
-          value={stats?.favouriteBean ? String(stats.favouriteBean.count) : '—'}
+          value={stats?.favouriteBean ? String(stats.favouriteBean.count) : '–'}
           label={stats?.favouriteBean ? stats.favouriteBean.name : 'Top coffee'}
         />
       </View>
@@ -148,6 +150,28 @@ export default function JournalScreen() {
         />
       )}
 
+      <View style={styles.section}>
+        <SectionHeader
+          title="Reading your cup"
+          actionLabel="Guide"
+          onAction={() => router.push('/guide/taste-troubleshooting')}
+        />
+        <View style={[styles.tipCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <TipRow
+            label="Sour and thin"
+            text="Usually under-extracted. Grind finer next time and keep the pour steady."
+          />
+          <TipRow
+            label="Bitter and drying"
+            text="Usually over-extracted. Grind coarser, or pour lower and gentler."
+          />
+          <TipRow
+            label="Weak but balanced"
+            text="That is strength, not extraction. Tighten the ratio before touching the grind."
+          />
+        </View>
+      </View>
+
       <OptionSheet
         visible={grinderSheet}
         onClose={() => setGrinderSheet(false)}
@@ -190,5 +214,24 @@ const styles = StyleSheet.create({
   filters: { marginTop: Spacing.lg },
   listHeader: { marginTop: Spacing.xl },
   list: { gap: Spacing.sm },
+  section: { marginTop: Spacing.xxl },
+  tipCard: {
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  tipRow: { gap: 2 },
   flex: { flex: 1 },
 });
+
+function TipRow({ label, text }: { label: string; text: string }) {
+  return (
+    <View style={styles.tipRow}>
+      <AppText variant="caption" tone="faint">
+        {label}
+      </AppText>
+      <AppText variant="small">{text}</AppText>
+    </View>
+  );
+}

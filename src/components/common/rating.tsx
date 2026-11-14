@@ -89,7 +89,7 @@ export function RatingBar({ label, value, max = 5, hint }: RatingBarProps) {
           />
         </View>
         <AppText variant="caption" tone={value == null ? 'faint' : 'default'} style={styles.barValue}>
-          {value == null ? '—' : `${value}`}
+          {value == null ? '–' : `${value}`}
         </AppText>
       </View>
     </View>

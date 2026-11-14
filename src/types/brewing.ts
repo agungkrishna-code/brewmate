@@ -83,6 +83,7 @@ export interface BrewSessionDraft {
   brewedAt: string;
   coffeeBeanId: string | null;
   recipeId: string | null;
+  recipeNameFallback?: string | null;
   grinderProfileId: string | null;
   grindSetting: number | null;
   coffeeDoseG: number;

@@ -115,6 +115,8 @@ export function StackScreen({
           ) : null}
         </View>
       ) : null}
+
+      {children}
     </Screen>
   );
 }

@@ -11,8 +11,12 @@ import { useDatabase } from '@/hooks/use-database';
 import { useTheme } from '@/hooks/use-theme';
 import { createBean, deleteBean, setBeanArchived, updateBean } from '@/services/beans';
 import type { CoffeeBeanWithStats, ProcessMethod, RoastLevel } from '@/types';
-import { todayIsoDate } from '@/utils/formatting';
-import { validateBean } from '@/utils/validation';
+import { formatRoastDate, parseIsoDateOnly, todayIsoDate } from '@/utils/formatting';
+import {
+  validateBean,
+  type BeanErrorKey,
+  type ValidationErrors,
+} from '@/utils/validation';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
@@ -40,6 +44,7 @@ export function BeanForm({ initialBean }: BeanFormProps) {
   const [processSheet, setProcessSheet] = useState(false);
   const [roastSheet, setRoastSheet] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<ValidationErrors<BeanErrorKey>>({});
   const [error, setError] = useState<string | null>(null);
 
   const isEditing = Boolean(initialBean);
@@ -59,6 +64,7 @@ export function BeanForm({ initialBean }: BeanFormProps) {
       notes,
     };
     const errors = validateBean(draft);
+    setFieldErrors(errors);
     if (Object.values(errors).some(Boolean)) {
       setError(Object.values(errors).filter(Boolean).join(' '));
       return;
@@ -130,6 +136,7 @@ export function BeanForm({ initialBean }: BeanFormProps) {
         value={name}
         onChangeText={setName}
         placeholder="e.g. Guji Hambela"
+        error={fieldErrors.name}
         required
         maxLength={80}
       />
@@ -206,7 +213,12 @@ export function BeanForm({ initialBean }: BeanFormProps) {
           onChangeText={setRoastDate}
           placeholder="yyyy-mm-dd"
           keyboardType="numbers-and-punctuation"
-          hint="Used to show how many days off roast the coffee is."
+          error={fieldErrors.roastDate}
+          hint={
+            roastDate.trim() && parseIsoDateOnly(roastDate.trim())
+              ? `Roasted ${formatRoastDate(roastDate.trim())}`
+              : 'Used to show how many days off roast the coffee is.'
+          }
           maxLength={10}
         />
         <ChipRow>

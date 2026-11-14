@@ -2,11 +2,13 @@ import { Button, IconButton } from '@/components/common/button';
 import { Chip, ChipRow } from '@/components/common/chip';
 import { EmptyState } from '@/components/common/empty-state';
 import { Screen } from '@/components/common/screen';
+import { SectionHeader } from '@/components/common/section';
 import { AppText } from '@/components/common/text';
 import { RecipeCard } from '@/components/recipes/recipe-card';
 import { DISCLAIMERS } from '@/constants/defaults';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useFocusedQuery } from '@/hooks/use-database';
+import { useTheme } from '@/hooks/use-theme';
 import { listRecipeSummaries } from '@/services/recipes';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -15,6 +17,7 @@ import { StyleSheet, View } from 'react-native';
 type Filter = 'all' | 'favorites' | 'starters';
 
 export default function RecipesScreen() {
+  const theme = useTheme();
   const [filter, setFilter] = useState<Filter>('all');
   const { data } = useFocusedQuery(async (db) => listRecipeSummaries(db));
   const recipes = useMemo(() => data ?? [], [data]);
@@ -90,6 +93,25 @@ export default function RecipesScreen() {
         />
       )}
 
+      <View style={styles.section}>
+        <SectionHeader
+          title="Using a starter"
+          actionLabel="Guide"
+          onAction={() => router.push('/guide/v60-basics')}
+        />
+        <View style={[styles.noteCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <AppText variant="small">
+            Brew a starter once without changing it. That is your baseline. Then adjust the
+            grind, one click at a time, until the sweetness and finish suit the coffee in the
+            bag.
+          </AppText>
+          <AppText variant="caption" tone="muted">
+            Bright & Sweet suits floral light roasts and smaller cups. Classic 4-Pour is the
+            balanced reference. Slow Single Pour is built for a larger, gentler brew.
+          </AppText>
+        </View>
+      </View>
+
       <AppText variant="caption" tone="faint" align="center" style={styles.disclaimer}>
         {DISCLAIMERS.starterRecipes}
       </AppText>
@@ -117,6 +139,13 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: Spacing.xs },
   filters: { marginTop: Spacing.xl },
   list: { gap: Spacing.sm, marginTop: Spacing.lg },
+  section: { marginTop: Spacing.xxl },
+  noteCard: {
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
   disclaimer: { marginTop: Spacing.xl },
   bottomButton: { marginTop: Spacing.lg },
   flex: { flex: 1 },

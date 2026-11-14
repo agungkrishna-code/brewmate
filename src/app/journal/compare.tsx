@@ -1,11 +1,12 @@
-import { Button, IconButton } from '@/components/common/button';
+import { Button } from '@/components/common/button';
+import { Ionicons } from '@/components/common/icon';
 import { StackScreen } from '@/components/common/screen';
 import { SectionHeader } from '@/components/common/section';
 import { BottomSheet } from '@/components/common/sheet';
 import { AppText } from '@/components/common/text';
 import { RATING_CATEGORIES } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
-import { useQuery } from '@/hooks/use-database';
+import { useFocusedQuery } from '@/hooks/use-database';
 import { useTheme } from '@/hooks/use-theme';
 import { listGrinders } from '@/services/grinders';
 import { listSessions } from '@/services/journal';
@@ -27,7 +28,7 @@ type Slot = 'a' | 'b';
 
 export default function CompareScreen() {
   const theme = useTheme();
-  const { data } = useQuery(async (db) => {
+  const { data } = useFocusedQuery(async (db) => {
     const [sessions, grinders] = await Promise.all([listSessions(db, {}), listGrinders(db)]);
     return { sessions, grinders };
   });
@@ -47,7 +48,7 @@ export default function CompareScreen() {
   const sessionB = sessions.find((session) => session.id === bId) ?? null;
 
   const grindLabel = (session: BrewSessionDetail | null): string => {
-    if (!session) return '—';
+    if (!session) return '–';
     if (session.grindSetting == null) return 'Not set';
     const grinder = grinders.find((item) => item.id === session.grinderProfileId);
     return grinder
@@ -72,12 +73,13 @@ export default function CompareScreen() {
         <AppText variant="label" tone="faint">
           Brew {slot.toUpperCase()}
         </AppText>
-        <IconButton
-          icon="swap-horizontal"
-          label={`Change brew ${slot.toUpperCase()}`}
-          size={28}
-          onPress={() => setPicker(slot)}
-        />
+        <View
+          style={[
+            styles.swapBadge,
+            { backgroundColor: theme.surfaceSunken, borderColor: theme.border },
+          ]}>
+          <Ionicons name="swap-horizontal" size={14} color={theme.text} />
+        </View>
       </View>
       <AppText variant="bodyStrong" numberOfLines={2}>
         {session?.beanNameSnapshot ?? session?.recipeNameSnapshot ?? 'Choose a brew'}
@@ -189,10 +191,10 @@ export default function CompareScreen() {
                     {category.label}
                   </AppText>
                   <AppText variant="small" style={styles.compareValue}>
-                    {sessionA.ratings?.[category.key] ?? '—'}
+                    {sessionA.ratings?.[category.key] ?? '–'}
                   </AppText>
                   <AppText variant="small" style={styles.compareValue}>
-                    {sessionB.ratings?.[category.key] ?? '—'}
+                    {sessionB.ratings?.[category.key] ?? '–'}
                   </AppText>
                   <AppText
                     variant="caption"
@@ -217,8 +219,8 @@ export default function CompareScreen() {
               ))}
               {compareRow(
                 'Average',
-                sessionA.averageRating != null ? formatRating(sessionA.averageRating) : '—',
-                sessionB.averageRating != null ? formatRating(sessionB.averageRating) : '—',
+                sessionA.averageRating != null ? formatRating(sessionA.averageRating) : '–',
+                sessionB.averageRating != null ? formatRating(sessionB.averageRating) : '–',
                 ratingDelta(sessionA.averageRating, sessionB.averageRating)
               )}
             </View>
@@ -301,6 +303,9 @@ export default function CompareScreen() {
                       : ''}
                   </AppText>
                 </View>
+                {selected ? (
+                  <Ionicons name="checkmark-circle" size={18} color={theme.gold} />
+                ) : null}
               </Pressable>
             );
           })}
@@ -325,6 +330,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: Spacing.xs,
+  },
+  swapBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   section: { marginTop: Spacing.xxl },
   table: {

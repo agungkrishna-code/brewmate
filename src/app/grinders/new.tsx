@@ -10,7 +10,11 @@ import { useDatabase } from '@/hooks/use-database';
 import { useTheme } from '@/hooks/use-theme';
 import { createGrinder } from '@/services/grinders';
 import type { GrinderSettingUnit } from '@/types';
-import { validateGrinder } from '@/utils/validation';
+import {
+  validateGrinder,
+  type GrinderErrorKey,
+  type ValidationErrors,
+} from '@/utils/validation';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -30,6 +34,7 @@ export default function NewGrinderScreen() {
   const [referenceMax, setReferenceMax] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<ValidationErrors<GrinderErrorKey>>({});
   const [error, setError] = useState<string | null>(null);
 
   const save = async () => {
@@ -38,7 +43,10 @@ export default function NewGrinderScreen() {
       name,
       clicksPerRotation: clicksPerRotation ?? 0,
       micronsPerClick: micronsPerClick ?? 0,
+      referenceMin,
+      referenceMax,
     });
+    setFieldErrors(errors);
     if (Object.values(errors).some(Boolean)) {
       setError(Object.values(errors).filter(Boolean).join(' '));
       return;
@@ -90,6 +98,7 @@ export default function NewGrinderScreen() {
         value={name}
         onChangeText={setName}
         placeholder="e.g. KINGrinder K6"
+        error={fieldErrors.name}
         required
         maxLength={60}
       />
@@ -115,6 +124,7 @@ export default function NewGrinderScreen() {
             step={1}
             min={1}
             decimals={0}
+            error={fieldErrors.clicksPerRotation}
             style={styles.flex}
           />
           <NumberField
@@ -125,6 +135,7 @@ export default function NewGrinderScreen() {
             step={1}
             min={1}
             decimals={0}
+            error={fieldErrors.micronsPerClick}
             style={styles.flex}
           />
         </View>
@@ -151,7 +162,7 @@ export default function NewGrinderScreen() {
       <View style={styles.section}>
         <SectionHeader
           title="Manufacturer reference"
-          subtitle="Optional — leave empty if none is published"
+          subtitle="Optional. Leave empty if none is published"
         />
         <View style={styles.row}>
           <NumberField
@@ -159,8 +170,10 @@ export default function NewGrinderScreen() {
             value={referenceMin}
             onChange={setReferenceMin}
             step={0.5}
+            min={0}
             decimals={2}
-            placeholder="—"
+            placeholder="–"
+            error={fieldErrors.referenceRange}
             style={styles.flex}
           />
           <NumberField
@@ -168,8 +181,9 @@ export default function NewGrinderScreen() {
             value={referenceMax}
             onChange={setReferenceMax}
             step={0.5}
+            min={0}
             decimals={2}
-            placeholder="—"
+            placeholder="–"
             style={styles.flex}
           />
         </View>

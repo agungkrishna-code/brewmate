@@ -29,10 +29,11 @@ import {
 } from '@/utils/calculations';
 import { clicksForSetting, macroStepsFor, referenceStatus } from '@/utils/grinder';
 import { formatDuration, formatRatio, formatStopwatch, formatWeight } from '@/utils/formatting';
-import { validateRecipe } from '@/utils/validation';
-import { STARTER_RECIPES } from '@/constants/defaults';
+import { validateBean, validateGrinder, validateRecipe } from '@/utils/validation';
+import { EMPTY_GRINDER_DRAFT, STARTER_RECIPES } from '@/constants/defaults';
+import { GUIDE_ARTICLES } from '@/constants/guide';
 import { BUILTIN_GRINDERS } from '@/database/seed';
-import type { PourStep } from '@/types';
+import type { CoffeeBeanDraft, PourStep } from '@/types';
 
 test('total water and bloom follow the dose', () => {
   assert.equal(totalWaterFor(15, 16), 240);
@@ -238,4 +239,59 @@ test('formatting reads like a recipe card', () => {
   assert.equal(formatStopwatch(134_600), '02:14');
   assert.equal(pourLabel(0, 3), 'First pour');
   assert.equal(pourLabel(0, 1), 'Single pour');
+});
+
+test('bean and grinder validation catches invalid dates and inverted ranges', () => {
+  const baseBean: CoffeeBeanDraft = {
+    name: 'Guji',
+    origin: '',
+    country: '',
+    region: '',
+    farm: '',
+    variety: '',
+    process: 'Washed',
+    roastLevel: 'Light',
+    roastDate: '2026-11-01',
+    tastingNotes: '',
+    notes: '',
+  };
+  assert.deepEqual(validateBean(baseBean), {});
+  const badBean = validateBean({
+    ...baseBean,
+    roastDate: '2026-02-31',
+  });
+  assert.ok(badBean.roastDate);
+
+  const badGrinder = validateGrinder({
+    ...EMPTY_GRINDER_DRAFT,
+    name: 'Custom',
+    referenceMin: 8,
+    referenceMax: 5,
+    preferredMin: 20,
+    preferredMax: 15,
+  });
+  assert.ok(badGrinder.referenceRange);
+  assert.ok(badGrinder.preferredRange);
+});
+
+test('guide articles have unique routes, content and sources', () => {
+  const slugs = new Set<string>();
+
+  for (const article of GUIDE_ARTICLES) {
+    assert.ok(article.slug.length > 0, 'every article needs a route');
+    assert.ok(!slugs.has(article.slug), `duplicate guide route: ${article.slug}`);
+    slugs.add(article.slug);
+
+    assert.ok(article.title.length > 0, `${article.slug} needs a title`);
+    assert.ok(article.summary.length > 0, `${article.slug} needs a summary`);
+    assert.ok(article.sections.length >= 2, `${article.slug} needs at least two sections`);
+    assert.ok(article.sources.length >= 1, `${article.slug} needs a source`);
+
+    for (const section of article.sections) {
+      assert.ok(section.heading.length > 0, `${article.slug} has an empty heading`);
+      assert.ok(section.blocks.length > 0, `${article.slug} has an empty section`);
+    }
+  }
+
+  assert.equal(GUIDE_ARTICLES.length, 8);
 });

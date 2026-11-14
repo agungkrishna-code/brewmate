@@ -14,6 +14,7 @@ interface MiniStepperProps {
   suffix?: string;
   decimals?: number;
   min?: number;
+  max?: number;
 }
 
 /** Compact +/- control used inside pour cards where a full field is too wide. */
@@ -25,13 +26,15 @@ function MiniStepper({
   suffix,
   decimals = 0,
   min = 0,
+  max,
 }: MiniStepperProps) {
   const theme = useTheme();
   const factor = 10 ** decimals;
 
   const nudge = (direction: 1 | -1) => {
     const next = Math.round((value + direction * step) * factor) / factor;
-    onChange(Math.max(min, next));
+    const bounded = max != null ? Math.min(max, next) : next;
+    onChange(Math.max(min, bounded));
   };
 
   const display = Number.isInteger(value) ? String(value) : value.toFixed(decimals);
@@ -113,6 +116,7 @@ export function StageEditor({ plan, compact }: StageEditorProps) {
             onChange={plan.setBloomDuration}
             step={5}
             min={10}
+            max={120}
             suffix="s"
           />
         </View>

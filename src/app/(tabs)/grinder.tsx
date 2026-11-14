@@ -7,8 +7,9 @@ import { GrinderCard } from '@/components/grinder/grinder-card';
 import { GrindSettingRow } from '@/components/grinder/grind-setting-row';
 import { GrindSettingSheet } from '@/components/grinder/grind-setting-sheet';
 import { DISCLAIMERS } from '@/constants/defaults';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useDatabase, useFocusedQuery } from '@/hooks/use-database';
+import { useTheme } from '@/hooks/use-theme';
 import { listBeans } from '@/services/beans';
 import { deleteGrindSetting, listGrindSettings, listGrinders } from '@/services/grinders';
 import { listRecipeSummaries } from '@/services/recipes';
@@ -18,6 +19,7 @@ import { Alert, StyleSheet, View } from 'react-native';
 
 export default function GrinderScreen() {
   const db = useDatabase();
+  const theme = useTheme();
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const { data, reload } = useFocusedQuery(async (database) => {
@@ -114,6 +116,29 @@ export default function GrinderScreen() {
       </View>
 
       <View style={styles.section}>
+        <SectionHeader
+          title="Dialing in"
+          subtitle="One change at a time"
+          actionLabel="Guide"
+          onAction={() => router.push('/guide/grinder-calibration')}
+        />
+        <View style={[styles.tipCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <TipRow
+            label="1. Start in range"
+            text="Use the published window if the model has one. If not, start in the middle of what feels medium-fine and adjust from there."
+          />
+          <TipRow
+            label="2. Change one click"
+            text="Sour and thin means finer. Bitter and dry means coarser. Keep dose, water and temperature fixed."
+          />
+          <TipRow
+            label="3. Record the window"
+            text="Save the low and high ends for each coffee. A click on the S5 Pro is 15 microns; on the C5 Pro it is 31 microns."
+          />
+        </View>
+      </View>
+
+      <View style={styles.section}>
         <Button
           label="Add a custom grinder"
           icon="add-circle-outline"
@@ -138,6 +163,17 @@ export default function GrinderScreen() {
   );
 }
 
+function TipRow({ label, text }: { label: string; text: string }) {
+  return (
+    <View style={styles.tipRow}>
+      <AppText variant="caption" tone="faint">
+        {label}
+      </AppText>
+      <AppText variant="small">{text}</AppText>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
@@ -149,6 +185,13 @@ const styles = StyleSheet.create({
   cards: { gap: Spacing.md, marginTop: Spacing.xl },
   section: { marginTop: Spacing.xxl },
   list: { gap: Spacing.sm },
+  tipCard: {
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  tipRow: { gap: 2 },
   disclaimer: { marginTop: Spacing.md },
   flex: { flex: 1 },
 });

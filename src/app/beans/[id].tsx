@@ -1,6 +1,7 @@
 import { BeanForm } from '@/components/beans/bean-form';
 import { EmptyState } from '@/components/common/empty-state';
 import { Screen } from '@/components/common/screen';
+import { AppText } from '@/components/common/text';
 import { Spacing } from '@/constants/theme';
 import { useQuery } from '@/hooks/use-database';
 import { getBean } from '@/services/beans';
@@ -17,7 +18,15 @@ export default function BeanDetailScreen() {
   );
 
   if (loading) {
-    return <Screen>{null}</Screen>;
+    return (
+      <Screen>
+        <View style={{ paddingTop: Spacing.xxxl }}>
+          <AppText variant="small" tone="muted">
+            Loading coffee…
+          </AppText>
+        </View>
+      </Screen>
+    );
   }
 
   if (!data) {

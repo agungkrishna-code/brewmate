@@ -4,6 +4,7 @@ import { AppText } from '@/components/common/text';
 import { Button } from '@/components/common/button';
 import { Ionicons } from '@/components/common/icon';
 import { Radius, Spacing } from '@/constants/theme';
+import { useSettings } from '@/contexts/settings-context';
 import { useDatabase } from '@/hooks/use-database';
 import { useTheme } from '@/hooks/use-theme';
 import { saveGrindSetting } from '@/services/grinders';
@@ -45,8 +46,14 @@ function GrindSettingSheetBody({
 }: GrindSettingSheetProps) {
   const theme = useTheme();
   const db = useDatabase();
+  const { preferences, setLastGrinderId } = useSettings();
 
-  const [grinderId, setGrinderId] = useState(fixedGrinderId ?? grinders[0]?.id ?? '');
+  const initialGrinder =
+    fixedGrinderId ??
+    grinders.find((item) => item.id === preferences.lastGrinderId)?.id ??
+    grinders[0]?.id ??
+    '';
+  const [grinderId, setGrinderId] = useState(initialGrinder);
   const [setting, setSetting] = useState<number | null>(null);
   const [beanId, setBeanId] = useState<string | null>(initialBeanId ?? null);
   const [recipeId, setRecipeId] = useState<string | null>(null);
@@ -79,6 +86,7 @@ function GrindSettingSheetBody({
         clicks: clicksForSetting(grinder, setting),
         notes: notes || null,
       });
+      await setLastGrinderId(grinder.id);
       onSaved();
       onClose();
     } catch (caught) {
@@ -203,6 +211,7 @@ function GrindSettingSheetBody({
             label="Grinder"
             value={grinder?.name ?? 'Choose a grinder'}
             icon="disc-outline"
+            disabled={Boolean(fixedGrinderId)}
             onPress={() => setPicker('grinder')}
           />
           <NumberField

@@ -79,7 +79,7 @@ export const STAGE_INSTRUCTIONS: Record<StepKind, string> = {
 export const MAX_POUR_STAGES = 6;
 
 export const APP_NAME = 'Brewmate';
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 export const DISCLAIMERS = {
   starterRecipes:
@@ -143,7 +143,7 @@ export const STARTER_RECIPES: Omit<BrewRecipe, 'id'>[] = [
   {
     ...starterBase,
     name: 'Bright & Sweet',
-    description: 'Smaller dose, higher ratio — built for floral filter roasts.',
+    description: 'Smaller dose, higher ratio, built for floral filter roasts.',
     coffeeDoseG: 12,
     ratio: 17,
     totalWaterG: 204,

@@ -275,6 +275,7 @@ interface SelectFieldProps {
   value: string;
   placeholder?: string;
   onPress: () => void;
+  disabled?: boolean;
   hint?: string;
   error?: string;
   icon?: IconName;
@@ -286,6 +287,7 @@ export function SelectField({
   value,
   placeholder = 'Select',
   onPress,
+  disabled,
   hint,
   error,
   icon,
@@ -298,7 +300,9 @@ export function SelectField({
     <Field label={label} hint={hint} error={error} style={style}>
       <Pressable
         accessibilityRole="button"
+        accessibilityState={{ disabled: Boolean(disabled) }}
         accessibilityLabel={label ? `${label}: ${value || placeholder}` : value || placeholder}
+        disabled={disabled}
         onPress={onPress}
         style={({ pressed }) => [
           styles.inputShell,
@@ -306,7 +310,7 @@ export function SelectField({
             minHeight: TouchTarget,
             backgroundColor: theme.surfaceSunken,
             borderColor: error ? theme.danger : theme.border,
-            opacity: pressed ? 0.7 : 1,
+            opacity: disabled ? 0.75 : pressed ? 0.7 : 1,
           },
         ]}>
         {icon ? <Ionicons name={icon} size={17} color={theme.textFaint} /> : null}
@@ -317,7 +321,11 @@ export function SelectField({
           style={styles.flex}>
           {isEmpty ? placeholder : value}
         </AppText>
-        <Ionicons name="chevron-down" size={16} color={theme.textFaint} />
+        <Ionicons
+          name={disabled ? 'lock-closed-outline' : 'chevron-down'}
+          size={16}
+          color={theme.textFaint}
+        />
       </Pressable>
     </Field>
   );

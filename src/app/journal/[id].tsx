@@ -11,9 +11,10 @@ import { AppText } from '@/components/common/text';
 import { RATING_CATEGORIES, EMPTY_RATINGS } from '@/constants/defaults';
 import { BrandSurface, Radius, Spacing } from '@/constants/theme';
 import { useBrewDraft } from '@/contexts/brew-draft-context';
-import { useDatabase, useQuery } from '@/hooks/use-database';
+import { useDatabase, useFocusedQuery } from '@/hooks/use-database';
 import { useTheme } from '@/hooks/use-theme';
 import { buildTimeline } from '@/services/brewing/timeline';
+import { calculateBrew } from '@/services/calculator/v60';
 import { deleteSession, getSession, updateSessionReview } from '@/services/journal';
 import { getGrinder } from '@/services/grinders';
 import type { BrewRatings, BrewSessionDetail } from '@/types';
@@ -37,7 +38,7 @@ export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const sessionId = typeof id === 'string' ? id : '';
 
-  const { data, reload } = useQuery(
+  const { data, reload } = useFocusedQuery(
     async (database) => {
       const session = sessionId ? await getSession(database, sessionId) : null;
       if (!session) return null;
@@ -69,18 +70,31 @@ export default function SessionDetailScreen() {
   const brewAgain = useCallback(() => {
     if (!data) return;
     const { session } = data;
+    const bloomMultiplier =
+      session.bloomWaterG != null && session.coffeeDoseG > 0
+        ? Math.round((session.bloomWaterG / session.coffeeDoseG) * 100) / 100
+        : 3;
+    const bloomDurationS = session.steps[0]?.durationS ?? 45;
+    const steps =
+      session.steps.length > 0
+        ? session.steps
+        : calculateBrew({
+            doseG: session.coffeeDoseG,
+            ratio: session.ratio,
+            bloomMultiplier,
+            bloomDurationS,
+            pourCount: 3,
+            drawdownDurationS: 45,
+          }).steps;
     beginBrew({
       recipeId: session.recipeId,
       recipeName: session.recipeNameSnapshot ?? 'Re-brew',
       coffeeDoseG: session.coffeeDoseG,
       ratio: session.ratio,
       waterTempC: session.waterTempC,
-      bloomMultiplier:
-        session.bloomWaterG != null && session.coffeeDoseG > 0
-          ? Math.round((session.bloomWaterG / session.coffeeDoseG) * 100) / 100
-          : 3,
-      bloomDurationS: session.steps[0]?.durationS ?? 45,
-      steps: session.steps,
+      bloomMultiplier,
+      bloomDurationS,
+      steps,
       grinderProfileId: session.grinderProfileId,
       grindSetting: session.grindSetting,
       coffeeBeanId: session.coffeeBeanId,
@@ -209,7 +223,7 @@ export default function SessionDetailScreen() {
           <DataRow label="Water temperature" value={formatTemperature(session.waterTempC)} />
           <DataRow
             label="Bloom water"
-            value={session.bloomWaterG != null ? formatWeight(session.bloomWaterG, true) : '—'}
+            value={session.bloomWaterG != null ? formatWeight(session.bloomWaterG, true) : '–'}
           />
           <DataRow label="Total brew time" value={formatDuration(session.totalTimeS)} />
           <DataRow label="Stages" value={String(timeline.length)} />
@@ -286,6 +300,11 @@ function ReviewSheet({
     try {
       await updateSessionReview(db, session.id, notes, ratings);
       onSaved();
+    } catch (caught) {
+      Alert.alert(
+        'Could not save review',
+        caught instanceof Error ? caught.message : 'Please try again.'
+      );
     } finally {
       setSaving(false);
     }
