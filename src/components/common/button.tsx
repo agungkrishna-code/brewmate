@@ -8,10 +8,18 @@ import {
 } from 'react-native';
 import { FontFamily, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { Ionicons, type IconName } from './icon';
+import { AppIcon, type IconName } from './icon';
 import { AppText } from './text';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'gold';
+export type ButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'ghost'
+  | 'danger'
+  | 'accent'
+  | 'gold'
+  | 'inverseSecondary'
+  | 'inverseGhost';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
@@ -28,7 +36,7 @@ interface ButtonProps {
   accessibilityHint?: string;
 }
 
-const HEIGHTS: Record<ButtonSize, number> = { sm: 38, md: TouchTarget, lg: 56 };
+const HEIGHTS: Record<ButtonSize, number> = { sm: 44, md: TouchTarget, lg: 56 };
 const PADDING: Record<ButtonSize, number> = { sm: Spacing.md, md: Spacing.lg, lg: Spacing.xl };
 
 export function Button({
@@ -50,12 +58,22 @@ export function Button({
     primary: { bg: theme.primary, fg: theme.onPrimary },
     secondary: { bg: theme.surface, fg: theme.text, border: theme.borderStrong },
     ghost: { bg: 'transparent', fg: theme.textMuted },
-    danger: { bg: theme.dangerSoft, fg: theme.danger },
-    gold: { bg: theme.gold, fg: theme.mode === 'dark' ? '#20160F' : '#2A1E17' },
+    danger: { bg: theme.dangerSoft, fg: theme.danger, border: theme.danger },
+    accent: { bg: theme.accent, fg: theme.onAccent },
+    gold: { bg: theme.accent, fg: theme.onAccent },
+    inverseSecondary: {
+      bg: '#26221E',
+      fg: '#F5F2EC',
+      border: 'rgba(245, 242, 236, 0.22)',
+    },
+    inverseGhost: {
+      bg: 'transparent',
+      fg: '#D6CFC7',
+    },
   };
   const palette = palettes[variant];
   const isDisabled = disabled || loading;
-  const iconSize = size === 'lg' ? 20 : 17;
+  const iconSize = size === 'lg' ? 19 : 16;
 
   return (
     <Pressable
@@ -73,7 +91,7 @@ export function Button({
           backgroundColor: palette.bg,
           borderColor: palette.border ?? 'transparent',
           borderWidth: palette.border ? 1 : 0,
-          opacity: isDisabled ? 0.45 : pressed ? 0.8 : 1,
+          opacity: isDisabled ? 0.45 : pressed ? 0.82 : 1,
         },
         fullWidth && styles.fullWidth,
         style,
@@ -83,7 +101,7 @@ export function Button({
       ) : (
         <View style={styles.row}>
           {icon && iconPosition === 'left' ? (
-            <Ionicons name={icon} size={iconSize} color={palette.fg} />
+            <AppIcon name={icon} size={iconSize} color={palette.fg} />
           ) : null}
           <AppText
             variant="bodyStrong"
@@ -92,7 +110,7 @@ export function Button({
             {label}
           </AppText>
           {icon && iconPosition === 'right' ? (
-            <Ionicons name={icon} size={iconSize} color={palette.fg} />
+            <AppIcon name={icon} size={iconSize} color={palette.fg} />
           ) : null}
         </View>
       )}
@@ -106,7 +124,7 @@ interface IconButtonProps {
   label: string;
   size?: number;
   color?: string;
-  variant?: 'plain' | 'surface' | 'inverse';
+  variant?: 'plain' | 'surface' | 'accent' | 'instrument';
   disabled?: boolean;
 }
 
@@ -114,7 +132,7 @@ export function IconButton({
   icon,
   onPress,
   label,
-  size = 40,
+  size = 44,
   color,
   variant = 'surface',
   disabled,
@@ -122,30 +140,45 @@ export function IconButton({
   const theme = useTheme();
   const backgrounds = {
     plain: 'transparent',
-    surface: theme.surfaceSunken,
-    inverse: theme.primary,
+    surface: theme.surface,
+    accent: theme.accent,
+    instrument: '#26221E',
   };
-  const resolved = color ?? (variant === 'inverse' ? theme.onPrimary : theme.text);
+  const borders = {
+    plain: 'transparent',
+    surface: theme.border,
+    accent: 'transparent',
+    instrument: 'rgba(245, 242, 236, 0.16)',
+  };
+  const resolved =
+    color ??
+    (variant === 'accent'
+      ? theme.onAccent
+      : variant === 'instrument'
+        ? '#F5F2EC'
+        : theme.text);
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
-      hitSlop={6}
+      hitSlop={Math.max(4, Math.ceil((TouchTarget - size) / 2))}
       onPress={onPress}
       style={({ pressed }) => [
         {
           width: size,
           height: size,
-          borderRadius: Radius.pill,
+          borderRadius: Radius.md,
           backgroundColor: backgrounds[variant],
+          borderColor: borders[variant],
+          borderWidth: variant === 'plain' ? 0 : 1,
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: disabled ? 0.4 : pressed ? 0.6 : 1,
+          opacity: disabled ? 0.4 : pressed ? 0.65 : 1,
         },
       ]}>
-      <Ionicons name={icon} size={size * 0.46} color={resolved} />
+      <AppIcon name={icon} size={Math.round(size * 0.43)} color={resolved} />
     </Pressable>
   );
 }
@@ -208,26 +241,27 @@ export function SegmentedControl<T extends string>({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: Radius.pill,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  smallLabel: { fontSize: 14 },
+  smallLabel: { fontSize: 13.5 },
   fullWidth: { alignSelf: 'stretch' },
   flex: { flex: 1 },
   segmentTrack: {
     flexDirection: 'row',
     padding: 3,
-    borderRadius: Radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.md,
+    borderWidth: 1,
     alignSelf: 'flex-start',
-    gap: 2,
+    gap: 3,
   },
   segment: {
+    minHeight: 40,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    borderRadius: Radius.pill,
+    borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: 'transparent',
     alignItems: 'center',

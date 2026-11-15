@@ -3,7 +3,15 @@ import { Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type TextVariant = keyof typeof Typography;
-export type TextTone = 'default' | 'muted' | 'faint' | 'primary' | 'gold' | 'inverse' | 'danger';
+export type TextTone =
+  | 'default'
+  | 'muted'
+  | 'faint'
+  | 'primary'
+  | 'accent'
+  | 'gold'
+  | 'inverse'
+  | 'danger';
 
 export interface AppTextProps extends TextProps {
   variant?: TextVariant;
@@ -11,6 +19,8 @@ export interface AppTextProps extends TextProps {
   /** Shorthand for a single colour override. */
   color?: string;
   align?: TextStyle['textAlign'];
+  /** Enforce tabular numbers on any variant (e.g. inline weights, times, ratios). */
+  tabular?: boolean;
 }
 
 export function AppText({
@@ -18,6 +28,7 @@ export function AppText({
   tone = 'default',
   color,
   align,
+  tabular,
   style,
   ...rest
 }: AppTextProps) {
@@ -27,7 +38,8 @@ export function AppText({
     muted: theme.textMuted,
     faint: theme.textFaint,
     primary: theme.primary,
-    gold: theme.gold,
+    accent: theme.accent,
+    gold: theme.accent,
     inverse: theme.onPrimary,
     danger: theme.danger,
   };
@@ -39,10 +51,15 @@ export function AppText({
         Typography[variant],
         { color: color ?? tones[tone] },
         align ? { textAlign: align } : null,
+        tabular ? styles.tabular : null,
         style,
       ]}
     />
   );
 }
 
-export const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  tabular: {
+    fontVariant: ['tabular-nums'],
+  },
+});

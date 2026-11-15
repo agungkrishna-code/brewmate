@@ -1,28 +1,32 @@
-import { Button, IconButton } from '@/components/common/button';
-import { EmptyState } from '@/components/common/empty-state';
+import { IconButton } from '@/components/common/button';
+import { EmptyState, ErrorState, LoadingState } from '@/components/common/empty-state';
+import { AppIcon } from '@/components/common/icon';
 import { Screen } from '@/components/common/screen';
 import { SectionHeader } from '@/components/common/section';
 import { AppText } from '@/components/common/text';
 import { GrinderCard } from '@/components/grinder/grinder-card';
 import { GrindSettingRow } from '@/components/grinder/grind-setting-row';
 import { GrindSettingSheet } from '@/components/grinder/grind-setting-sheet';
-import { DISCLAIMERS } from '@/constants/defaults';
+import { getDisclaimers } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useDatabase, useFocusedQuery } from '@/hooks/use-database';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { listBeans } from '@/services/beans';
 import { deleteGrindSetting, listGrindSettings, listGrinders } from '@/services/grinders';
 import { listRecipeSummaries } from '@/services/recipes';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 export default function GrinderScreen() {
   const db = useDatabase();
   const theme = useTheme();
+  const { lang, t } = useTranslation();
+  const disclaimers = getDisclaimers(lang);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const { data, reload } = useFocusedQuery(async (database) => {
+  const { data, loading, error, reload } = useFocusedQuery(async (database) => {
     const [grinders, settings, beans, recipes] = await Promise.all([
       listGrinders(database),
       listGrindSettings(database),
@@ -44,10 +48,10 @@ export default function GrinderScreen() {
   }, [settings]);
 
   const confirmDelete = (id: string) => {
-    Alert.alert('Delete grind setting?', 'This only removes the saved note.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t.grinder.deleteSettingTitle, t.grinder.deleteSettingMsg, [
+      { text: t.common.cancel, style: 'cancel' },
       {
-        text: 'Delete',
+        text: t.common.delete,
         style: 'destructive',
         onPress: async () => {
           await deleteGrindSetting(db, id);
@@ -61,95 +65,96 @@ export default function GrinderScreen() {
     <Screen>
       <View style={styles.headerRow}>
         <View style={styles.flex}>
-          <AppText variant="display">Grinder</AppText>
+          <AppText variant="display">{t.grinder.title}</AppText>
           <AppText variant="small" tone="muted" style={styles.subtitle}>
-            Two models, two click systems, zero guesswork.
+            {t.grinder.subtitle}
           </AppText>
         </View>
         <IconButton
-          icon="add"
-          label="Add a custom grinder"
-          variant="inverse"
+          icon="plus"
+          label={t.grinder.addCustomA11y}
+          variant="accent"
           onPress={() => router.push('/grinders/new')}
         />
       </View>
 
-      <View style={styles.cards}>
-        {grinders.map((grinder) => (
-          <GrinderCard
-            key={grinder.id}
-            grinder={grinder}
-            lastSetting={lastByGrinder.get(grinder.id) ?? null}
-            onPress={() => router.push(`/grinders/${grinder.id}`)}
-          />
-        ))}
-      </View>
-
-      <View style={styles.section}>
-        <SectionHeader
-          title="Saved grind settings"
-          subtitle="Bean by bean, in each grinder's own units"
-          actionLabel="Add"
-          onAction={() => setSheetOpen(true)}
-        />
-        {settings.length > 0 ? (
-          <View style={styles.list}>
-            {settings.map((setting) => (
-              <GrindSettingRow
-                key={setting.id}
-                setting={setting}
-                grinder={grinders.find((item) => item.id === setting.grinderProfileId)}
-                onDelete={() => confirmDelete(setting.id)}
-                showGrinder
+      {error && !data ? (
+        <View style={styles.section}>
+          <ErrorState message={error} onRetry={reload} />
+        </View>
+      ) : loading && !data ? (
+        <LoadingState label={t.grinder.loading} />
+      ) : (
+        <>
+          <View style={styles.cards}>
+            {grinders.map((grinder) => (
+              <GrinderCard
+                key={grinder.id}
+                grinder={grinder}
+                lastSetting={lastByGrinder.get(grinder.id) ?? null}
+                onPress={() => router.push(`/grinders/${grinder.id}`)}
               />
             ))}
           </View>
-        ) : (
-          <EmptyState
-            icon="compass-outline"
-            title="No settings recorded"
-            description="Save the setting you used for a coffee so the next cup starts from somewhere real."
-            actionLabel="Save a setting"
-            onAction={() => setSheetOpen(true)}
-          />
-        )}
-      </View>
 
-      <View style={styles.section}>
-        <SectionHeader
-          title="Dialing in"
-          subtitle="One change at a time"
-          actionLabel="Guide"
-          onAction={() => router.push('/guide/grinder-calibration')}
-        />
-        <View style={[styles.tipCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <TipRow
-            label="1. Start in range"
-            text="Use the published window if the model has one. If not, start in the middle of what feels medium-fine and adjust from there."
-          />
-          <TipRow
-            label="2. Change one click"
-            text="Sour and thin means finer. Bitter and dry means coarser. Keep dose, water and temperature fixed."
-          />
-          <TipRow
-            label="3. Record the window"
-            text="Save the low and high ends for each coffee. A click on the S5 Pro is 15 microns; on the C5 Pro it is 31 microns."
-          />
+          <View style={styles.section}>
+            <SectionHeader
+              title={t.grinder.savedSettings}
+              subtitle={t.grinder.savedSettingsSub}
+              actionLabel={t.common.add}
+              onAction={() => setSheetOpen(true)}
+            />
+            {settings.length > 0 ? (
+              <View style={styles.list}>
+                {settings.map((setting) => (
+                  <GrindSettingRow
+                    key={setting.id}
+                    setting={setting}
+                    grinder={grinders.find((item) => item.id === setting.grinderProfileId)}
+                    onDelete={() => confirmDelete(setting.id)}
+                    showGrinder
+                  />
+                ))}
+              </View>
+            ) : (
+              <EmptyState
+                compact
+                icon="bookmark"
+                title={t.grinder.nothingSavedTitle}
+                description={t.grinder.nothingSavedDesc}
+                actionLabel={t.common.save}
+                onAction={() => setSheetOpen(true)}
+              />
+            )}
+          </View>
+        </>
+      )}
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t.grinder.guideA11y}
+        onPress={() => router.push('/guide/grinder-calibration')}
+        style={({ pressed }) => [
+          styles.guideLink,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            opacity: pressed ? 0.85 : 1,
+          },
+        ]}>
+        <AppIcon name="book-open" size={17} color={theme.accent} />
+        <View style={styles.flex}>
+          <AppText variant="bodyStrong">{t.grinder.guideTitle}</AppText>
+          <AppText variant="caption" tone="muted">
+            {t.grinder.guideSub}
+          </AppText>
         </View>
-      </View>
+        <AppIcon name="chevron-right" size={16} color={theme.textFaint} />
+      </Pressable>
 
-      <View style={styles.section}>
-        <Button
-          label="Add a custom grinder"
-          icon="add-circle-outline"
-          variant="secondary"
-          onPress={() => router.push('/grinders/new')}
-          fullWidth
-        />
-        <AppText variant="caption" tone="faint" style={styles.disclaimer}>
-          {DISCLAIMERS.grinder}
-        </AppText>
-      </View>
+      <AppText variant="caption" tone="faint" style={styles.disclaimer}>
+        {disclaimers.grinder}
+      </AppText>
 
       <GrindSettingSheet
         visible={sheetOpen}
@@ -160,17 +165,6 @@ export default function GrinderScreen() {
         recipes={data?.recipes ?? []}
       />
     </Screen>
-  );
-}
-
-function TipRow({ label, text }: { label: string; text: string }) {
-  return (
-    <View style={styles.tipRow}>
-      <AppText variant="caption" tone="faint">
-        {label}
-      </AppText>
-      <AppText variant="small">{text}</AppText>
-    </View>
   );
 }
 
@@ -185,13 +179,15 @@ const styles = StyleSheet.create({
   cards: { gap: Spacing.md, marginTop: Spacing.xl },
   section: { marginTop: Spacing.xxl },
   list: { gap: Spacing.sm },
-  tipCard: {
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: Spacing.md,
+  guideLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.md,
+    marginTop: Spacing.xxl,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
   },
-  tipRow: { gap: 2 },
-  disclaimer: { marginTop: Spacing.md },
+  disclaimer: { marginTop: Spacing.lg },
   flex: { flex: 1 },
 });

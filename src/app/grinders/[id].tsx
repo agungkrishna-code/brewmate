@@ -1,15 +1,16 @@
 import { Button, IconButton } from '@/components/common/button';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, ErrorState, LoadingState } from '@/components/common/empty-state';
 import { NumberField, TextField } from '@/components/common/field';
 import { StackScreen } from '@/components/common/screen';
-import { DataRow, SectionHeader } from '@/components/common/section';
+import { Badge, DataRow, SectionHeader } from '@/components/common/section';
 import { AppText } from '@/components/common/text';
 import { GrindSettingRow } from '@/components/grinder/grind-setting-row';
 import { GrindSettingSheet } from '@/components/grinder/grind-setting-sheet';
-import { DISCLAIMERS } from '@/constants/defaults';
+import { getDisclaimers, localizeGrinderReferenceNote } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useSettings } from '@/contexts/settings-context';
 import { useDatabase, useFocusedQuery } from '@/hooks/use-database';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { listBeans } from '@/services/beans';
 import {
@@ -31,12 +32,13 @@ import { Alert, StyleSheet, View } from 'react-native';
 export default function GrinderDetailScreen() {
   const theme = useTheme();
   const db = useDatabase();
+  const { lang, t } = useTranslation();
   const { preferences, setLastGrinderId } = useSettings();
   const { id } = useLocalSearchParams<{ id: string }>();
   const grinderId = typeof id === 'string' ? id : '';
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const { data, reload } = useFocusedQuery(
+  const { data, loading, error, reload } = useFocusedQuery(
     async (database) => {
       const grinder = grinderId ? await getGrinder(database, grinderId) : null;
       if (!grinder) return null;
@@ -54,12 +56,12 @@ export default function GrinderDetailScreen() {
   const confirmDeleteGrinder = useCallback(() => {
     if (!data) return;
     Alert.alert(
-      'Delete this grinder?',
-      'Its saved grind settings will be removed too. Brew sessions keep their snapshots.',
+      t.grinder.deleteGrinderTitle,
+      t.grinder.deleteGrinderMsg,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'Delete',
+          text: t.common.delete,
           style: 'destructive',
           onPress: async () => {
             await deleteGrinder(db, data.grinder.id);
@@ -71,14 +73,14 @@ export default function GrinderDetailScreen() {
         },
       ]
     );
-  }, [data, db, preferences.lastGrinderId, setLastGrinderId]);
+  }, [data, db, preferences.lastGrinderId, setLastGrinderId, t]);
 
   const confirmDeleteSetting = useCallback(
     (settingId: string) => {
-      Alert.alert('Delete grind setting?', 'This only removes the saved note.', [
-        { text: 'Cancel', style: 'cancel' },
+      Alert.alert(t.grinder.deleteSettingTitle, t.grinder.deleteSettingMsg, [
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'Delete',
+          text: t.common.delete,
           style: 'destructive',
           onPress: async () => {
             await deleteGrindSetting(db, settingId);
@@ -87,17 +89,33 @@ export default function GrinderDetailScreen() {
         },
       ]);
     },
-    [db, reload]
+    [db, reload, t]
   );
+
+  if (loading && !data) {
+    return (
+      <StackScreen title={t.grinder.title}>
+        <LoadingState label={t.grinder.loadingSingle} />
+      </StackScreen>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <StackScreen title={t.grinder.title}>
+        <ErrorState message={error} onRetry={reload} />
+      </StackScreen>
+    );
+  }
 
   if (!data) {
     return (
-      <StackScreen title="Grinder">
+      <StackScreen title={t.grinder.title}>
         <EmptyState
-          icon="alert-circle-outline"
-          title="Grinder not found"
-          description="It may have been deleted."
-          actionLabel="Back to grinders"
+          icon="alert-circle"
+          title={t.grinder.notFoundTitle}
+          description={t.grinder.notFoundDesc}
+          actionLabel={t.grinder.backToGrinders}
           onAction={() => router.replace('/grinder')}
         />
       </StackScreen>
@@ -105,45 +123,57 @@ export default function GrinderDetailScreen() {
   }
 
   const { grinder, settings, beans, recipes, grinders } = data;
-  const published = referenceRangeLabel(grinder);
+  const published = referenceRangeLabel(grinder, lang);
+  const referenceNote = localizeGrinderReferenceNote(grinder, lang);
 
   return (
     <StackScreen
       title={grinder.name}
-      subtitle={`${grinder.brand} · ${grinder.clicksPerRotation} clicks per rotation`}
+      subtitle={`${grinder.brand} · ${t.grinder.clicksPerRotationSub(grinder.clicksPerRotation)}`}
       right={
         grinder.isBuiltin ? (
-          <View style={[styles.badge, { backgroundColor: theme.primarySoft }]}>
-            <AppText variant="caption" color={theme.primary}>
-              Built-in
-            </AppText>
-          </View>
+          <Badge label={t.grinder.builtInBadge} />
         ) : (
-          <IconButton icon="trash-outline" label="Delete grinder" onPress={confirmDeleteGrinder} />
+          <IconButton
+            icon="trash"
+            label={t.grinder.deleteGrinderA11y}
+            onPress={confirmDeleteGrinder}
+          />
         )
       }>
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <DataRow label="Adjustment per click" value={`${grinder.micronsPerClick} µm`} emphasis />
-        <DataRow label="Clicks per rotation" value={String(grinder.clicksPerRotation)} emphasis />
+        <DataRow label={t.grinder.adjustmentPerClick} tabular value={`${grinder.micronsPerClick} µm`} emphasis />
+        <DataRow label={t.grinder.clicksPerRotation} tabular value={String(grinder.clicksPerRotation)} emphasis />
         {grinder.macroStepsPerRotation ? (
           <DataRow
-            label="Macro steps per rotation"
+            label={t.grinder.macroStepsPerRotation}
+            tabular
             value={String(grinder.macroStepsPerRotation)}
           />
         ) : null}
         <DataRow
-          label="Setting unit"
-          value={grinder.settingUnit === 'rotations' ? 'Dial rotations' : 'Clicks from zero'}
+          label={t.grinder.settingUnit}
+          last
+          value={
+            grinder.settingUnit === 'rotations'
+              ? t.grinder.dialRotations
+              : t.grinder.clicksFromZero
+          }
         />
       </View>
 
       <View style={styles.section}>
-        <SectionHeader title="Published reference" />
-        <View style={[styles.note, { backgroundColor: theme.goldSoft }]}>
-          <AppText variant="bodyStrong">{published ?? 'No published pour-over range'}</AppText>
+        <SectionHeader title={t.grinder.publishedRefSection} />
+        <View
+          style={[
+            styles.note,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}>
+          <AppText variant="bodyStrong" tabular>
+            {published ?? t.grinder.noPublishedRange}
+          </AppText>
           <AppText variant="small" tone="muted" style={styles.noteText}>
-            {grinder.referenceNote ??
-              'This model has no manufacturer pour-over reference. Use your own notes to build a range.'}
+            {referenceNote ?? t.grinder.noPublishedNote}
           </AppText>
         </View>
       </View>
@@ -152,9 +182,9 @@ export default function GrinderDetailScreen() {
 
       <View style={styles.section}>
         <SectionHeader
-          title="Saved settings"
-          subtitle={`${settings.length} recorded`}
-          actionLabel="Add"
+          title={t.grinder.savedSettings}
+          subtitle={t.grinder.savedSettingsCount(settings.length)}
+          actionLabel={t.common.add}
           onAction={() => setSheetOpen(true)}
         />
         {settings.length > 0 ? (
@@ -171,10 +201,10 @@ export default function GrinderDetailScreen() {
         ) : (
           <EmptyState
             compact
-            icon="bookmark-outline"
-            title="Nothing saved yet"
-            description="Save the setting you used for a coffee and it will show up here."
-            actionLabel="Save a setting"
+            icon="bookmark"
+            title={t.grinder.nothingSavedYet}
+            description={t.grinder.nothingSavedDesc}
+            actionLabel={t.grinder.saveSettingBtn}
             onAction={() => setSheetOpen(true)}
           />
         )}
@@ -193,10 +223,6 @@ export default function GrinderDetailScreen() {
   );
 }
 
-/**
- * The editable calibration block. It mounts with the loaded grinder, so its
- * local state starts from the database without an effect that writes state.
- */
 function CalibrationForm({
   grinder,
   onSaved,
@@ -205,6 +231,8 @@ function CalibrationForm({
   onSaved: () => void;
 }) {
   const db = useDatabase();
+  const { lang, t } = useTranslation();
+  const disclaimers = getDisclaimers(lang);
   const [preferredMin, setPreferredMin] = useState<number | null>(grinder.preferredMin);
   const [preferredMax, setPreferredMax] = useState<number | null>(grinder.preferredMax);
   const [notes, setNotes] = useState(grinder.notes ?? '');
@@ -235,7 +263,7 @@ function CalibrationForm({
       preferredMax,
       notes: notes.trim() || null,
     };
-    const errors = validateGrinder(draft);
+    const errors = validateGrinder(draft, lang);
     if (errors.preferredRange) {
       setRangeError(errors.preferredRange);
       return;
@@ -250,8 +278,8 @@ function CalibrationForm({
       onSaved();
     } catch (caught) {
       Alert.alert(
-        'Could not save',
-        caught instanceof Error ? caught.message : 'Please try again.'
+        t.grinder.saveError,
+        caught instanceof Error ? caught.message : t.timer.tryAgain
       );
     } finally {
       setSaving(false);
@@ -261,53 +289,57 @@ function CalibrationForm({
   return (
     <View style={styles.section}>
       <SectionHeader
-        title="Your calibration"
-        subtitle="A working range in this grinder's own units"
+        title={t.grinder.yourCalibration}
+        subtitle={t.grinder.yourCalibrationSub}
       />
       <View style={styles.rangeRow}>
         <NumberField
-          label="From"
+          label={t.grinder.from}
           value={preferredMin}
           onChange={setPreferredMin}
-          suffix={unitLabel(grinder, preferredMin)}
+          suffix={unitLabel(grinder, preferredMin, lang)}
           step={0.5}
           min={0}
           decimals={2}
+          stepper
+          allowEmpty
           placeholder="–"
           error={rangeError ?? undefined}
           style={styles.flex}
         />
         <NumberField
-          label="To"
+          label={t.grinder.to}
           value={preferredMax}
           onChange={setPreferredMax}
-          suffix={unitLabel(grinder, preferredMax)}
+          suffix={unitLabel(grinder, preferredMax, lang)}
           step={0.5}
           min={0}
           decimals={2}
+          stepper
+          allowEmpty
           placeholder="–"
           style={styles.flex}
         />
       </View>
       <View style={styles.gap} />
       <TextField
-        label="Calibration notes"
+        label={t.grinder.calibrationNotes}
         value={notes}
         onChangeText={setNotes}
-        placeholder="Zero point, burr touch, anything you learned"
+        placeholder={t.grinder.calibrationNotesPlaceholder}
         multiline
         maxLength={400}
       />
       <View style={styles.saveRow}>
         <Button
-          label={savedFlash ? 'Saved' : 'Save calibration'}
-          icon={savedFlash ? 'checkmark' : 'save-outline'}
+          label={savedFlash ? t.common.saved : t.grinder.saveCalibration}
+          icon={savedFlash ? 'check' : 'save'}
           variant="secondary"
           onPress={save}
           loading={saving}
         />
         <AppText variant="caption" tone="faint">
-          {DISCLAIMERS.grinder}
+          {disclaimers.grinder}
         </AppText>
       </View>
     </View>
@@ -317,16 +349,20 @@ function CalibrationForm({
 const styles = StyleSheet.create({
   card: {
     borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     paddingHorizontal: Spacing.md,
   },
   section: { marginTop: Spacing.xxl },
-  note: { borderRadius: Radius.md, padding: Spacing.lg, gap: Spacing.xs },
+  note: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
   noteText: { marginTop: 2 },
   rangeRow: { flexDirection: 'row', gap: Spacing.md },
   gap: { height: Spacing.md },
   saveRow: { marginTop: Spacing.md, gap: Spacing.sm, alignItems: 'flex-start' },
   list: { gap: Spacing.sm },
-  badge: { paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.pill },
   flex: { flex: 1 },
 });

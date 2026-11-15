@@ -1,9 +1,10 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { MAX_POUR_STAGES } from '@/constants/defaults';
 import { FontFamily, Radius, Spacing, TouchTarget } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import type { BrewPlan } from '@/hooks/use-brew-plan';
-import { Ionicons } from '../common/icon';
+import { AppIcon } from '../common/icon';
 import { AppText } from '../common/text';
 
 interface MiniStepperProps {
@@ -17,7 +18,7 @@ interface MiniStepperProps {
   max?: number;
 }
 
-/** Compact +/- control used inside pour cards where a full field is too wide. */
+/** Compact +/- control used inside pour schedule rows. */
 function MiniStepper({
   label,
   value,
@@ -29,6 +30,7 @@ function MiniStepper({
   max,
 }: MiniStepperProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const factor = 10 ** decimals;
 
   const nudge = (direction: 1 | -1) => {
@@ -41,7 +43,7 @@ function MiniStepper({
 
   return (
     <View style={styles.stepperBlock}>
-      <AppText variant="label" tone="faint">
+      <AppText variant="fieldLabel" tone="muted">
         {label}
       </AppText>
       <View
@@ -51,23 +53,42 @@ function MiniStepper({
         ]}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Decrease ${label}`}
+          accessibilityLabel={t.common.decrease(label)}
           hitSlop={4}
           onPress={() => nudge(-1)}
-          style={({ pressed }) => [styles.stepperButton, { opacity: pressed ? 0.5 : 1 }]}>
-          <Ionicons name="remove" size={14} color={theme.textMuted} />
+          style={({ pressed }) => [
+            styles.stepperButton,
+            {
+              borderRightColor: theme.border,
+              backgroundColor: pressed ? theme.border : 'transparent',
+            },
+          ]}>
+          <AppIcon name="minus" size={14} color={theme.textMuted} />
         </Pressable>
-        <AppText variant="bodyStrong" style={styles.stepperValue}>
-          {display}
-          {suffix ? <AppText variant="caption" tone="faint"> {suffix}</AppText> : null}
-        </AppText>
+        <View style={styles.stepperCenter}>
+          <AppText variant="metricSmall" style={styles.stepperValue}>
+            {display}
+          </AppText>
+          {suffix ? (
+            <AppText variant="caption" tone="faint" tabular>
+              {suffix}
+            </AppText>
+          ) : null}
+        </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Increase ${label}`}
+          accessibilityLabel={t.common.increase(label)}
           hitSlop={4}
           onPress={() => nudge(1)}
-          style={({ pressed }) => [styles.stepperButton, { opacity: pressed ? 0.5 : 1 }]}>
-          <Ionicons name="add" size={14} color={theme.textMuted} />
+          style={({ pressed }) => [
+            styles.stepperButton,
+            styles.stepperButtonRight,
+            {
+              borderLeftColor: theme.border,
+              backgroundColor: pressed ? theme.border : 'transparent',
+            },
+          ]}>
+          <AppIcon name="plus" size={14} color={theme.textMuted} />
         </Pressable>
       </View>
     </View>
@@ -82,42 +103,45 @@ interface StageEditorProps {
 
 export function StageEditor({ plan, compact }: StageEditorProps) {
   const theme = useTheme();
+  const { lang, t } = useTranslation();
+  const secSuffix = lang === 'id' ? 'dtk' : 's';
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.group, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       {/* Bloom */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View style={[styles.stageRow, { borderBottomColor: theme.border }]}>
         <View style={styles.cardHeader}>
-          <View style={[styles.index, { backgroundColor: theme.primarySoft }]}>
-            <AppText variant="caption" color={theme.primary} style={styles.indexLabel}>
+          <View style={[styles.index, { backgroundColor: theme.accentSoft }]}>
+            <AppText variant="caption" tabular color={theme.accent} style={styles.indexLabel}>
               1
             </AppText>
           </View>
           <View style={styles.flex}>
-            <AppText variant="bodyStrong">Bloom</AppText>
-            <AppText variant="caption" tone="muted">
-              {plan.bloomWaterG} g · {plan.bloomMultiplier}× dose
+            <AppText variant="bodyStrong">{t.stageEditor.bloom}</AppText>
+            <AppText variant="caption" tone="muted" tabular>
+              {t.stageEditor.bloomMeta(plan.bloomWaterG, plan.bloomMultiplier)}
             </AppText>
           </View>
         </View>
         <View style={styles.controls}>
           <MiniStepper
-            label="Bloom water"
+            label={t.stageEditor.bloomWater}
             value={plan.bloomWaterG}
             onChange={(water) => plan.setBloomMultiplier(water / Math.max(0.1, plan.doseG))}
             step={0.5}
             decimals={1}
-            min={1}
+            min={Math.max(0.1, plan.doseG)}
+            max={Math.round(plan.doseG * 6 * 10) / 10}
             suffix="g"
           />
           <MiniStepper
-            label="Duration"
+            label={t.stageEditor.duration}
             value={plan.bloomDurationS}
             onChange={plan.setBloomDuration}
             step={5}
             min={10}
             max={120}
-            suffix="s"
+            suffix={secSuffix}
           />
         </View>
       </View>
@@ -128,51 +152,58 @@ export function StageEditor({ plan, compact }: StageEditorProps) {
         for (let position = 0; position <= index; position += 1) {
           cumulative += plan.pours[position].amountG;
         }
+        // Every other pour keeps at least 0.1 g, so this is the largest value
+        // this stage can take without pushing the schedule off its total.
+        const maxAmount = Math.max(
+          0.1,
+          Math.round((plan.remainingWaterG - 0.1 * (plan.pours.length - 1)) * 10) / 10
+        );
         return (
           <View
             key={`pour-${index}`}
-            style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            style={[styles.stageRow, { borderBottomColor: theme.border }]}>
             <View style={styles.cardHeader}>
               <View style={[styles.index, { backgroundColor: theme.surfaceSunken }]}>
-                <AppText variant="caption" tone="muted" style={styles.indexLabel}>
+                <AppText variant="caption" tabular tone="muted" style={styles.indexLabel}>
                   {index + 2}
                 </AppText>
               </View>
               <View style={styles.flex}>
                 <AppText variant="bodyStrong">{pour.label}</AppText>
-                <AppText variant="caption" tone="muted">
-                  +{pour.amountG} g → {Math.round(cumulative * 10) / 10} g total
+                <AppText variant="caption" tone="muted" tabular>
+                  {t.stageEditor.pourMeta(pour.amountG, Math.round(cumulative * 10) / 10)}
                 </AppText>
               </View>
               {plan.pours.length > 1 ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Remove ${pour.label}`}
-                  hitSlop={8}
+                  accessibilityLabel={t.stageEditor.removeStage(pour.label)}
+                  hitSlop={6}
                   onPress={() => plan.removePour(index)}
-                  style={({ pressed }) => [styles.removeButton, { opacity: pressed ? 0.5 : 1 }]}>
-                  <Ionicons name="close" size={16} color={theme.textFaint} />
+                  style={({ pressed }) => [styles.removeButton, { opacity: pressed ? 0.55 : 1 }]}>
+                  <AppIcon name="close" size={16} color={theme.textFaint} />
                 </Pressable>
               ) : null}
             </View>
             {!compact ? (
               <View style={styles.controls}>
                 <MiniStepper
-                  label="Water"
+                  label={t.stageEditor.water}
                   value={pour.amountG}
                   onChange={(amount) => plan.setPourAmount(index, amount)}
                   step={5}
                   decimals={1}
                   min={0.1}
+                  max={maxAmount}
                   suffix="g"
                 />
                 <MiniStepper
-                  label="Duration"
+                  label={t.stageEditor.duration}
                   value={pour.durationS}
                   onChange={(seconds) => plan.setPourDuration(index, seconds)}
                   step={5}
                   min={5}
-                  suffix="s"
+                  suffix={secSuffix}
                 />
               </View>
             ) : null}
@@ -180,66 +211,60 @@ export function StageEditor({ plan, compact }: StageEditorProps) {
         );
       })}
 
+      {/* Add pour action row */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Add a pouring stage"
+        accessibilityLabel={t.stageEditor.addPour}
         accessibilityState={{ disabled: plan.pours.length >= MAX_POUR_STAGES }}
         disabled={plan.pours.length >= MAX_POUR_STAGES}
         onPress={plan.addPour}
         style={({ pressed }) => [
-          styles.addButton,
+          styles.addRow,
           {
-            borderColor: theme.borderStrong,
+            borderBottomColor: theme.border,
             backgroundColor: pressed ? theme.surfaceSunken : 'transparent',
-            opacity: plan.pours.length >= MAX_POUR_STAGES ? 0.4 : 1,
+            opacity: plan.pours.length >= MAX_POUR_STAGES ? 0.45 : 1,
           },
         ]}>
-        <Ionicons name="add" size={16} color={theme.textMuted} />
-        <AppText variant="small" tone="muted">
-          {plan.pours.length >= MAX_POUR_STAGES ? 'Six pours is plenty' : 'Add a pouring stage'}
+        <AppIcon name="plus" size={16} color={theme.accent} />
+        <AppText variant="small" color={theme.accent} style={styles.addLabel}>
+          {plan.pours.length >= MAX_POUR_STAGES
+            ? t.stageEditor.maxPoursReached
+            : t.stageEditor.addPour}
         </AppText>
       </Pressable>
 
       {/* Drawdown */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View style={styles.drawdownRow}>
         <View style={styles.cardHeader}>
           <View style={[styles.index, { backgroundColor: theme.surfaceSunken }]}>
-            <Ionicons name="water-outline" size={13} color={theme.textMuted} />
+            <AppIcon name="droplets" size={13} color={theme.textMuted} />
           </View>
           <View style={styles.flex}>
-            <AppText variant="bodyStrong">Drawdown</AppText>
+            <AppText variant="bodyStrong">{t.stageEditor.drawdown}</AppText>
             <AppText variant="caption" tone="muted">
-              {plan.drawdownEnabled ? 'Wait for the bed to drain' : 'Not included in this brew'}
+              {plan.drawdownEnabled
+                ? t.stageEditor.drawdownEnabled
+                : t.stageEditor.drawdownDisabled}
             </AppText>
           </View>
-          <Pressable
-            accessibilityRole="switch"
-            accessibilityState={{ checked: plan.drawdownEnabled }}
-            accessibilityLabel="Include a drawdown stage"
-            onPress={() => plan.setDrawdownEnabled(!plan.drawdownEnabled)}
-            style={({ pressed }) => [
-              styles.toggle,
-              {
-                backgroundColor: plan.drawdownEnabled ? theme.primary : theme.surfaceSunken,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}>
-            <AppText
-              variant="caption"
-              color={plan.drawdownEnabled ? theme.onPrimary : theme.textMuted}>
-              {plan.drawdownEnabled ? 'On' : 'Off'}
-            </AppText>
-          </Pressable>
+          <Switch
+            accessibilityLabel={t.stageEditor.drawdownSwitchA11y}
+            value={plan.drawdownEnabled}
+            onValueChange={plan.setDrawdownEnabled}
+            trackColor={{ false: theme.borderStrong, true: theme.accent }}
+            thumbColor={theme.switchThumb}
+          />
         </View>
         {plan.drawdownEnabled && !compact ? (
           <View style={styles.controls}>
             <MiniStepper
-              label="Duration"
+              label={t.stageEditor.duration}
               value={plan.drawdownDurationS}
               onChange={plan.setDrawdownDuration}
               step={5}
               min={5}
-              suffix="s"
+              suffix={secSuffix}
             />
           </View>
         ) : null}
@@ -249,10 +274,17 @@ export function StageEditor({ plan, compact }: StageEditorProps) {
 }
 
 const styles = StyleSheet.create({
-  root: { gap: Spacing.sm },
-  card: {
+  group: {
     borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  stageRow: {
+    padding: Spacing.md,
+    gap: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  drawdownRow: {
     padding: Spacing.md,
     gap: Spacing.md,
   },
@@ -260,15 +292,15 @@ const styles = StyleSheet.create({
   index: {
     width: 26,
     height: 26,
-    borderRadius: Radius.pill,
+    borderRadius: Radius.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  indexLabel: { fontSize: 11 },
+  indexLabel: { fontSize: 11, fontFamily: FontFamily.sansMedium },
   removeButton: {
-    width: 28,
-    height: 28,
-    borderRadius: Radius.pill,
+    width: 36,
+    height: 36,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -276,40 +308,40 @@ const styles = StyleSheet.create({
   stepperBlock: { flex: 1, gap: 4 },
   stepper: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     borderRadius: Radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    minHeight: 38,
-    paddingHorizontal: 2,
+    borderWidth: 1,
+    minHeight: 42,
+    overflow: 'hidden',
   },
   stepperButton: {
-    width: 32,
-    height: 34,
+    width: 38,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRightWidth: StyleSheet.hairlineWidth,
+  },
+  stepperButtonRight: {
+    borderRightWidth: 0,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+  },
+  stepperCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
   },
   stepperValue: {
-    flex: 1,
     textAlign: 'center',
-    fontFamily: FontFamily.sansMedium,
-    fontSize: 14,
   },
-  addButton: {
+  addRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
     minHeight: TouchTarget,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderStyle: 'dashed',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  toggle: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderRadius: Radius.pill,
-    minWidth: 48,
-    alignItems: 'center',
-  },
+  addLabel: { fontFamily: FontFamily.sansMedium },
   flex: { flex: 1 },
 });

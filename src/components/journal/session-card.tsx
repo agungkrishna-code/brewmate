@@ -1,9 +1,10 @@
 import type { BrewSessionDetail } from '@/types';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Radius, Spacing } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate, formatDuration, formatRatio, formatRating, formatWeight } from '@/utils/formatting';
-import { Ionicons } from '../common/icon';
+import { AppIcon } from '../common/icon';
 import { AppText } from '../common/text';
 
 interface SessionCardProps {
@@ -15,19 +16,20 @@ interface SessionCardProps {
 
 export function SessionCard({ session, onPress, selected, selectionMode }: SessionCardProps) {
   const theme = useTheme();
-  const title = session.beanNameSnapshot ?? session.recipeNameSnapshot ?? 'Brew session';
+  const { lang, t } = useTranslation();
+  const title = session.beanNameSnapshot ?? session.recipeNameSnapshot ?? t.journal.defaultSessionTitle;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${title} brewed ${formatDate(session.brewedAt)}`}
+      accessibilityLabel={t.journal.cardA11y(title, formatDate(session.brewedAt, lang))}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
         {
-          backgroundColor: theme.surface,
-          borderColor: selected ? theme.gold : theme.border,
-          borderWidth: selected ? 1.5 : StyleSheet.hairlineWidth,
+          backgroundColor: selected ? theme.accentSoft : theme.surface,
+          borderColor: selected ? theme.accent : theme.border,
+          borderWidth: selected ? 1.5 : 1,
           opacity: pressed ? 0.88 : 1,
         },
       ]}>
@@ -37,34 +39,43 @@ export function SessionCard({ session, onPress, selected, selectionMode }: Sessi
             {title}
           </AppText>
           <AppText variant="caption" tone="muted" numberOfLines={1}>
-            {formatDate(session.brewedAt)}
+            {formatDate(session.brewedAt, lang)}
             {session.recipeNameSnapshot && session.recipeNameSnapshot !== title
               ? ` · ${session.recipeNameSnapshot}`
               : ''}
           </AppText>
         </View>
         {selectionMode ? (
-          <Ionicons
-            name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-            size={20}
-            color={selected ? theme.gold : theme.borderStrong}
-          />
+          <View
+            style={[
+              styles.checkbox,
+              {
+                borderColor: selected ? theme.accent : theme.textFaint,
+                backgroundColor: selected ? theme.accent : 'transparent',
+              },
+            ]}>
+            {selected ? (
+              <AppIcon name="check" size={13} color={theme.onAccent} strokeWidth={2.4} />
+            ) : null}
+          </View>
         ) : session.averageRating != null ? (
           <View style={styles.rating}>
-            <Ionicons name="star" size={12} color={theme.gold} />
-            <AppText variant="caption">{formatRating(session.averageRating)}</AppText>
+            <AppIcon name="star" size={12} color={theme.accent} filled />
+            <AppText variant="metricSmall" tabular>
+              {formatRating(session.averageRating)}
+            </AppText>
           </View>
         ) : (
-          <Ionicons name="chevron-forward" size={15} color={theme.textFaint} />
+          <AppIcon name="chevron-right" size={16} color={theme.textFaint} />
         )}
       </View>
 
-      <View style={styles.metaRow}>
-        <Meta label="Dose" value={formatWeight(session.coffeeDoseG, true)} />
-        <Meta label="Ratio" value={formatRatio(session.ratio)} />
-        <Meta label="Time" value={formatDuration(session.totalTimeS)} />
+      <View style={[styles.metaRow, { borderTopColor: theme.border }]}>
+        <Meta label={t.common.dose} value={formatWeight(session.coffeeDoseG, true)} />
+        <Meta label={t.common.ratio} value={formatRatio(session.ratio)} />
+        <Meta label={t.common.time} value={formatDuration(session.totalTimeS)} />
         {session.grindSetting != null ? (
-          <Meta label="Grind" value={String(session.grindSetting)} />
+          <Meta label={t.common.grind} value={String(session.grindSetting)} />
         ) : null}
       </View>
 
@@ -72,7 +83,7 @@ export function SessionCard({ session, onPress, selected, selectionMode }: Sessi
         <View style={styles.footer}>
           {session.grinderNameSnapshot ? (
             <View style={styles.grinderTag}>
-              <Ionicons name="settings-outline" size={11} color={theme.textFaint} />
+              <AppIcon name="disc" size={11} color={theme.textFaint} />
               <AppText variant="caption" tone="faint">
                 {session.grinderNameSnapshot}
               </AppText>
@@ -92,10 +103,12 @@ export function SessionCard({ session, onPress, selected, selectionMode }: Sessi
 function Meta({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.meta}>
-      <AppText variant="label" tone="faint" style={styles.metaLabel}>
+      <AppText variant="caption" tone="faint">
         {label}
       </AppText>
-      <AppText variant="caption">{value}</AppText>
+      <AppText variant="metricSmall" tabular>
+        {value}
+      </AppText>
     </View>
   );
 }
@@ -107,11 +120,23 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
-  rating: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  metaRow: { flexDirection: 'row', gap: Spacing.lg },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: Radius.xs,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaRow: {
+    flexDirection: 'row',
+    gap: Spacing.lg,
+    paddingTop: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   meta: { gap: 1 },
-  metaLabel: { fontSize: 9.5 },
   footer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  grinderTag: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  grinderTag: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   flex: { flex: 1 },
 });

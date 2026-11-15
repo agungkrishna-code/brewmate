@@ -1,6 +1,7 @@
 import type { GrinderProfile, GrindSettingDetail } from '@/types';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Radius, Spacing } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import {
   formatSetting,
@@ -8,7 +9,7 @@ import {
   referenceRangeLabel,
   settingDetail,
 } from '@/utils/grinder';
-import { Ionicons } from '../common/icon';
+import { AppIcon } from '../common/icon';
 import { Badge, Divider } from '../common/section';
 import { AppText } from '../common/text';
 
@@ -20,13 +21,14 @@ interface GrinderCardProps {
 
 export function GrinderCard({ grinder, lastSetting, onPress }: GrinderCardProps) {
   const theme = useTheme();
-  const reference = referenceRangeLabel(grinder);
-  const preferred = preferredRangeLabel(grinder);
+  const { lang, t } = useTranslation();
+  const reference = referenceRangeLabel(grinder, lang);
+  const preferred = preferredRangeLabel(grinder, lang);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${grinder.name} grinder settings`}
+      accessibilityLabel={t.grinder.cardA11y(grinder.name)}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
@@ -38,57 +40,63 @@ export function GrinderCard({ grinder, lastSetting, onPress }: GrinderCardProps)
       ]}>
       <View style={styles.header}>
         <View style={styles.flex}>
-          <AppText variant="label" tone="faint">
+          <AppText variant="caption" tone="faint">
             {grinder.brand}
           </AppText>
           <AppText variant="h2" style={styles.name}>
             {grinder.name}
           </AppText>
         </View>
-        <Ionicons name="chevron-forward" size={16} color={theme.textFaint} />
+        <AppIcon name="chevron-right" size={16} color={theme.textFaint} />
       </View>
 
-      <View style={styles.specRow}>
-        <AppText variant="caption" tone="muted">
-          {grinder.clicksPerRotation} clicks/rotation · {(grinder.micronsPerClick / 1000).toFixed(3)}{' '}
-          mm/click
-          {grinder.macroStepsPerRotation ? ` · ${grinder.macroStepsPerRotation} macro steps` : ''}
-        </AppText>
-      </View>
+      <AppText variant="caption" tone="muted" tabular>
+        {t.grinder.cardSpecs(
+          grinder.clicksPerRotation,
+          (grinder.micronsPerClick / 1000).toFixed(3),
+          grinder.macroStepsPerRotation
+        )}
+      </AppText>
 
       <Divider style={styles.divider} />
 
       {reference ? (
         <View style={styles.row}>
           <AppText variant="caption" tone="muted" style={styles.flex}>
-            Published pour-over reference
+            {t.grinder.publishedRefLabel}
           </AppText>
-          <AppText variant="caption" style={styles.value}>
+          <AppText variant="caption" tabular style={styles.value}>
             {reference}
           </AppText>
         </View>
       ) : null}
       <View style={styles.row}>
         <AppText variant="caption" tone="muted" style={styles.flex}>
-          Your working range
+          {t.grinder.workingRangeLabel}
         </AppText>
-        <AppText variant="caption" tone={preferred ? 'default' : 'faint'} style={styles.value}>
-          {preferred ?? 'Not set yet'}
+        <AppText variant="caption" tabular tone={preferred ? 'default' : 'faint'} style={styles.value}>
+          {preferred ?? t.common.notSet}
         </AppText>
       </View>
 
       {lastSetting ? (
-        <View style={[styles.lastSetting, { backgroundColor: theme.surfaceSunken }]}>
+        <View
+          style={[
+            styles.lastSetting,
+            { backgroundColor: theme.surfaceSunken, borderColor: theme.border },
+          ]}>
           <View style={styles.flex}>
             <AppText variant="caption" tone="muted">
-              Last saved setting
+              {t.grinder.lastSavedLabel}
             </AppText>
-            <AppText variant="bodyStrong">{formatSetting(grinder, lastSetting.settingValue)}</AppText>
-            <AppText variant="caption" tone="faint">
-              {settingDetail(grinder, lastSetting.settingValue)}
+            <AppText variant="bodyStrong" tabular>
+              {formatSetting(grinder, lastSetting.settingValue, lang)}
+            </AppText>
+            <AppText variant="caption" tone="faint" tabular>
+              {settingDetail(grinder, lastSetting.settingValue, lang)}
             </AppText>
           </View>
-          {lastSetting.beanName ? <Badge label={lastSetting.beanName} tone="gold" /> : null}
+          {lastSetting.beanName ? <Badge label={lastSetting.beanName} tone="accent" /> : null}
         </View>
       ) : null}
     </Pressable>
@@ -97,14 +105,13 @@ export function GrinderCard({ grinder, lastSetting, onPress }: GrinderCardProps)
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: Radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.md,
+    borderWidth: 1,
     padding: Spacing.lg,
     gap: Spacing.sm,
   },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
-  name: { marginTop: 2 },
-  specRow: { marginTop: -2 },
+  name: { marginTop: 1 },
   divider: { marginVertical: Spacing.xs },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   lastSetting: {
@@ -112,7 +119,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     padding: Spacing.md,
-    borderRadius: Radius.md,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
     marginTop: Spacing.xs,
   },
   value: { flexShrink: 1, textAlign: 'right' },

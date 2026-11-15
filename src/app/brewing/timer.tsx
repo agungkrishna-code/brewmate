@@ -1,8 +1,9 @@
-import { BrandSurface, Radius, Spacing } from '@/constants/theme';
+import { BrandSurface, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useBrewDraft } from '@/contexts/brew-draft-context';
 import { useSettings } from '@/contexts/settings-context';
 import { useDatabase, useQuery } from '@/hooks/use-database';
 import { useBrewingTimer } from '@/hooks/use-brewing-timer';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { buildTimeline } from '@/services/brewing/timeline';
 import { StatusBar } from 'expo-status-bar';
@@ -10,10 +11,17 @@ import { listBeans } from '@/services/beans';
 import { listGrinders } from '@/services/grinders';
 import { createSession } from '@/services/journal';
 import type { BrewRatings, BrewDraft, RatingKey } from '@/types';
-import { EMPTY_RATINGS, RATING_CATEGORIES, STAGE_INSTRUCTIONS } from '@/constants/defaults';
+import {
+  EMPTY_RATINGS,
+  getRatingCategories,
+  getStageInstructions,
+  localizeProcessMethod,
+  localizeRoastLevel,
+  localizeStepLabel,
+} from '@/constants/defaults';
 import { formatDuration, formatStopwatch, formatWeight } from '@/utils/formatting';
 import { unitLabel, referenceRangeLabel } from '@/utils/grinder';
-import { Ionicons } from '@/components/common/icon';
+import { AppIcon } from '@/components/common/icon';
 import { Button } from '@/components/common/button';
 import { NumberField, SelectField, TextField } from '@/components/common/field';
 import { StarRating } from '@/components/common/rating';
@@ -47,16 +55,32 @@ export default function BrewingTimerScreen() {
 
 function EmptyTimer({ onBack }: { onBack: () => void }) {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   return (
-    <View style={[styles.root, { paddingTop: insets.top + Spacing.xxl, paddingHorizontal: Spacing.xl }]}>
+    <View
+      style={[
+        styles.root,
+        {
+          paddingTop: insets.top + Spacing.xxl,
+          paddingHorizontal: Spacing.xl,
+          justifyContent: 'center',
+        },
+      ]}>
+      <StatusBar style="light" />
       <AppText variant="h1" color={BrandSurface.text}>
-        Nothing brewing yet
+        {t.timer.emptyTitle}
       </AppText>
       <AppText variant="small" color={BrandSurface.muted} style={styles.emptyText}>
-        Open the calculator or pick a recipe, then tap Start brewing.
+        {t.timer.emptyDesc}
       </AppText>
-      <Button label="Go to calculator" onPress={() => router.replace('/brew')} style={styles.emptyButton} />
-      <Button label="Back" variant="ghost" onPress={onBack} />
+      <Button
+        label={t.timer.goToCalculator}
+        variant="accent"
+        size="lg"
+        onPress={() => router.replace('/brew')}
+        style={styles.emptyButton}
+      />
+      <Button label={t.common.back} variant="inverseSecondary" onPress={onBack} />
     </View>
   );
 }
@@ -65,8 +89,11 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
   const insets = useSafeAreaInsets();
   const db = useDatabase();
   const theme = useTheme();
+  const { lang, t } = useTranslation();
   const { preferences, setLastGrinderId } = useSettings();
   const hapticsEnabled = preferences.haptics;
+  const stageInstructions = getStageInstructions(lang);
+  const ratingCategories = getRatingCategories(lang);
 
   const stages = useMemo(() => buildTimeline(draft.steps), [draft.steps]);
 
@@ -94,7 +121,6 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
   const grinder = grinders.find((item) => item.id === grinderId) ?? null;
   const bean = beans.find((item) => item.id === beanId) ?? null;
 
-  // Keep the display awake only while the brew is actually running.
   useEffect(() => {
     if (!preferences.keepAwake) return;
     if (timer.status !== 'running' && timer.status !== 'paused') return;
@@ -107,8 +133,8 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
   const activeStage = timer.activeStage;
   const stageTarget = activeStage?.targetWaterG ?? 0;
   const instruction = activeStage
-    ? STAGE_INSTRUCTIONS[activeStage.kind]
-    : 'Pour with intention and keep the bed level.';
+    ? stageInstructions[activeStage.kind]
+    : t.timer.defaultInstruction;
 
   const exit = useCallback(() => {
     if (timer.status === 'idle') {
@@ -117,14 +143,12 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
       return;
     }
     Alert.alert(
-      timer.isFinished ? 'Discard this brew?' : 'Leave the brew?',
-      timer.isFinished
-        ? 'This brew has not been saved to your journal.'
-        : 'The timer will stop and this plan will be cleared.',
+      timer.isFinished ? t.timer.discardTitle : t.timer.leaveTitle,
+      timer.isFinished ? t.timer.discardMsg : t.timer.leaveMsg,
       [
-        { text: 'Keep brewing', style: 'cancel' },
+        { text: t.timer.keepBrewing, style: 'cancel' },
         {
-          text: 'Leave',
+          text: t.timer.leave,
           style: 'destructive',
           onPress: () => {
             onLeave();
@@ -133,9 +157,8 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
         },
       ]
     );
-  }, [onLeave, timer.isFinished, timer.status]);
+  }, [onLeave, t, timer.isFinished, timer.status]);
 
-  // Android hardware back goes through the same confirmation as the chevron.
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       exit();
@@ -173,8 +196,8 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
       router.replace(`/journal/${id}`);
     } catch (caught) {
       Alert.alert(
-        'Could not save the brew',
-        caught instanceof Error ? caught.message : 'Please try again.'
+        t.timer.saveErrorTitle,
+        caught instanceof Error ? caught.message : t.timer.tryAgain
       );
     } finally {
       setSaving(false);
@@ -189,6 +212,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
     onLeave,
     ratings,
     setLastGrinderId,
+    t,
     timer.elapsedS,
     timer.totalDurationS,
   ]);
@@ -198,12 +222,20 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
 
   const statusLabel =
     timer.status === 'idle'
-      ? 'Ready when you are'
+      ? t.timer.readyWhenYouAre
       : timer.status === 'paused'
-        ? 'Paused, take your time'
+        ? t.timer.paused
         : timer.status === 'finished'
-          ? 'Brew complete'
-          : `Stage ${timer.activeIndex + 1} of ${stages.length}`;
+          ? t.timer.brewComplete
+          : t.timer.stageOf(timer.activeIndex + 1, stages.length);
+
+  const activeStageLabel = activeStage
+    ? localizeStepLabel(activeStage.label, activeStage.kind, lang)
+    : t.timer.readyLabel;
+  const nextStageLabel = timer.nextStage
+    ? localizeStepLabel(timer.nextStage.label, timer.nextStage.kind, lang)
+    : '';
+
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
@@ -211,15 +243,15 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Leave the brewing screen"
-          hitSlop={10}
+          accessibilityLabel={t.timer.leaveA11y}
+          hitSlop={6}
           onPress={exit}
           style={({ pressed }) => [styles.headerButton, { opacity: pressed ? 0.6 : 1 }]}>
-          <Ionicons name="chevron-down" size={22} color={BrandSurface.muted} />
+          <AppIcon name="chevron-down" size={22} color={BrandSurface.muted} />
         </Pressable>
         <View style={styles.headerCenter}>
           <AppText variant="label" color={BrandSurface.accent}>
-            Brewing
+            {t.timer.activeBrew}
           </AppText>
           <AppText variant="caption" color={BrandSurface.muted} numberOfLines={1}>
             {draft.recipeName}
@@ -227,16 +259,16 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Reset the timer"
+          accessibilityLabel={t.timer.resetA11y}
           accessibilityState={{ disabled: timer.status === 'idle' }}
           disabled={timer.status === 'idle'}
-          hitSlop={10}
+          hitSlop={6}
           onPress={timer.reset}
           style={({ pressed }) => [
             styles.headerButton,
             { opacity: timer.status === 'idle' ? 0.35 : pressed ? 0.6 : 1 },
           ]}>
-          <Ionicons name="refresh" size={20} color={BrandSurface.muted} />
+          <AppIcon name="reset" size={19} color={BrandSurface.muted} />
         </Pressable>
       </View>
 
@@ -246,17 +278,17 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
         <View style={styles.ringWrap}>
           <TimerRing
             progress={timer.progress}
-            size={252}
-            strokeWidth={8}
+            size={248}
+            strokeWidth={7}
             color={BrandSurface.accent}
-            trackColor="rgba(255, 252, 247, 0.09)">
+            trackColor="rgba(245, 242, 236, 0.1)">
             <AppText variant="monoLarge" color={BrandSurface.text}>
               {formatStopwatch(timer.elapsedMs)}
             </AppText>
             <AppText variant="label" color={BrandSurface.accent} style={styles.ringLabel}>
-              {activeStage?.label ?? 'Ready'}
+              {activeStageLabel}
             </AppText>
-            <AppText variant="caption" color={BrandSurface.muted}>
+            <AppText variant="caption" color={BrandSurface.muted} tabular>
               {statusLabel}
             </AppText>
           </TimerRing>
@@ -266,10 +298,10 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
           <View style={styles.stageTop}>
             <View style={styles.flex}>
               <AppText variant="label" color={BrandSurface.muted}>
-                {timer.isFinished ? 'Final weight' : 'Pour to'}
+                {timer.isFinished ? t.timer.finalWeight : t.timer.pourTo}
               </AppText>
               <View style={styles.targetRow}>
-                <AppText variant="h1" color={BrandSurface.text} style={styles.target}>
+                <AppText variant="metricHero" color={BrandSurface.text} style={styles.target}>
                   {formatWeight(timer.isFinished ? draft.coffeeDoseG * draft.ratio : stageTarget)}
                 </AppText>
                 <AppText variant="body" color={BrandSurface.muted}>
@@ -279,7 +311,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
             </View>
             <View style={styles.stageTimerBox}>
               <AppText variant="label" color={BrandSurface.muted}>
-                {timer.nextStage ? 'Next in' : 'Remaining'}
+                {timer.nextStage ? t.timer.nextIn : t.timer.remaining}
               </AppText>
               <AppText variant="mono" color={BrandSurface.text} style={styles.stageTimer}>
                 {formatDuration(timer.stageRemainingS)}
@@ -288,10 +320,22 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
           </View>
 
           <AppText variant="small" color={BrandSurface.muted} style={styles.instruction}>
-            {timer.isFinished
-              ? 'Drawdown finished. Swirl the carafe, let the cup cool a little, then save your notes.'
-              : instruction}
+            {timer.isFinished ? t.timer.finishedInstruction : instruction}
           </AppText>
+
+          {!timer.isFinished && timer.nextStage ? (
+            <View style={[styles.nextPreview, { borderTopColor: BrandSurface.line }]}>
+              <AppText variant="caption" color={BrandSurface.faint}>
+                {t.timer.nextStage}
+              </AppText>
+              <AppText variant="small" color={BrandSurface.text} tabular style={styles.flex}>
+                {t.timer.nextStageDetail(
+                  nextStageLabel,
+                  formatWeight(timer.nextStage.targetWaterG, true)
+                )}
+              </AppText>
+            </View>
+          ) : null}
 
           <View style={styles.rail}>
             {stages.map((stage, index) => {
@@ -307,7 +351,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
                         ? BrandSurface.accent
                         : active
                           ? BrandSurface.text
-                          : 'rgba(255, 252, 247, 0.16)',
+                          : 'rgba(245, 242, 236, 0.16)',
                     },
                   ]}
                 />
@@ -315,10 +359,10 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
             })}
           </View>
           <View style={styles.railLabels}>
-            <AppText variant="caption" color={BrandSurface.faint}>
+            <AppText variant="caption" color={BrandSurface.faint} tabular>
               {stages.length > 0 ? formatDuration(stages[0].startS) : '0:00'}
             </AppText>
-            <AppText variant="caption" color={BrandSurface.faint}>
+            <AppText variant="caption" color={BrandSurface.faint} tabular>
               {formatDuration(timer.totalDurationS)}
             </AppText>
           </View>
@@ -326,15 +370,17 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
 
         {timer.isFinished ? (
           <View style={styles.completeCard}>
-            <Ionicons name="checkmark-circle" size={22} color={BrandSurface.accent} />
+            <AppIcon name="check-circle" size={20} color={BrandSurface.accent} />
             <View style={styles.flex}>
               <AppText variant="bodyStrong" color={BrandSurface.text}>
-                Brew complete
+                {t.timer.brewComplete}
               </AppText>
-              <AppText variant="caption" color={BrandSurface.muted}>
-                {formatDuration(timer.elapsedS || timer.totalDurationS)} ·{' '}
-                {formatWeight(draft.coffeeDoseG * draft.ratio, true)} water ·{' '}
-                {formatWeight(draft.coffeeDoseG, true)} coffee
+              <AppText variant="caption" color={BrandSurface.muted} tabular>
+                {t.timer.completeMeta(
+                  formatDuration(timer.elapsedS || timer.totalDurationS),
+                  formatWeight(draft.coffeeDoseG * draft.ratio, true),
+                  formatWeight(draft.coffeeDoseG, true)
+                )}
               </AppText>
             </View>
           </View>
@@ -345,20 +391,20 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
         {timer.isFinished ? (
           <>
             <Button
-              label="Save to journal"
-              icon="bookmark-outline"
-              variant="gold"
+              label={t.timer.saveToJournal}
+              icon="book"
+              variant="accent"
               size="lg"
               fullWidth
               onPress={() => setSheetOpen(true)}
             />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Discard this brew"
+              accessibilityLabel={t.timer.discardBrewA11y}
               onPress={exit}
-              style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.6 : 1 }]}>
-              <AppText variant="caption" color={BrandSurface.muted}>
-                Discard brew
+              style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.65 : 1 }]}>
+              <AppText variant="small" color={BrandSurface.muted}>
+                {t.timer.discardBrew}
               </AppText>
             </Pressable>
           </>
@@ -367,30 +413,30 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
             <Button
               label={
                 timer.status === 'idle'
-                  ? 'Start brewing'
+                  ? t.timer.startBrewing
                   : timer.isRunning
-                    ? 'Pause'
-                    : 'Resume'
+                    ? t.timer.pause
+                    : t.timer.resume
               }
               icon={timer.status === 'idle' ? 'play' : timer.isRunning ? 'pause' : 'play'}
-              variant="gold"
+              variant="accent"
               size="lg"
               fullWidth
               onPress={timer.status === 'idle' ? timer.start : timer.toggle}
             />
             <View style={styles.secondaryRow}>
               <Button
-                label="Skip stage"
-                icon="play-skip-forward"
-                variant="ghost"
+                label={t.timer.skipStage}
+                icon="skip-forward"
+                variant="inverseSecondary"
                 disabled={timer.status === 'idle'}
                 onPress={timer.skipStage}
                 style={styles.flex}
               />
               <Button
-                label="Reset"
-                icon="refresh"
-                variant="ghost"
+                label={t.timer.reset}
+                icon="reset"
+                variant="inverseSecondary"
                 disabled={timer.status === 'idle'}
                 onPress={timer.reset}
                 style={styles.flex}
@@ -399,11 +445,11 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
             {timer.status !== 'idle' ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Finish brew now"
+                accessibilityLabel={t.timer.finishEarlyA11y}
                 onPress={timer.finish}
-                style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.6 : 1 }]}>
-                <AppText variant="caption" color={BrandSurface.muted}>
-                  Finish brew
+                style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.65 : 1 }]}>
+                <AppText variant="small" color={BrandSurface.muted}>
+                  {t.timer.finishEarly}
                 </AppText>
               </Pressable>
             ) : null}
@@ -417,39 +463,48 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
           setPicker(null);
           setSheetOpen(false);
         }}
-        title="Save this brew"
-        subtitle="Add the details you will want next time."
+        title={t.timer.saveSheetTitle}
+        subtitle={t.timer.saveSheetSub}
         footer={
           picker === null ? (
-            <Button label="Save to journal" onPress={saveSession} loading={saving} size="lg" fullWidth />
+            <Button
+              label={t.timer.saveToJournal}
+              variant="accent"
+              onPress={saveSession}
+              loading={saving}
+              size="lg"
+              fullWidth
+            />
           ) : undefined
         }>
         {picker === null ? (
           <View style={styles.form}>
             <SelectField
-              label="Coffee"
-              value={bean?.name ?? 'No coffee selected'}
-              icon="cafe-outline"
+              label={t.timer.coffeeLabel}
+              value={bean?.name ?? t.timer.noCoffeeSelected}
+              icon="coffee"
               onPress={() => setPicker('bean')}
             />
             <SelectField
-              label="Grinder"
-              value={grinder?.name ?? 'No grinder selected'}
-              icon="disc-outline"
+              label={t.timer.grinderLabel}
+              value={grinder?.name ?? t.timer.noGrinderSelected}
+              icon="disc"
               onPress={() => setPicker('grinder')}
             />
             <NumberField
-              label="Grind setting"
+              label={t.timer.grindSettingLabel}
               value={grindSetting}
               onChange={setGrindSetting}
-              suffix={grinder ? unitLabel(grinder, grindSetting) : undefined}
+              suffix={grinder ? unitLabel(grinder, grindSetting, lang) : undefined}
               step={0.5}
               decimals={2}
-              placeholder="e.g. 6.5"
-              hint={grinder ? referenceRangeLabel(grinder) ?? undefined : undefined}
+              stepper
+              allowEmpty
+              placeholder={t.timer.grindPlaceholder}
+              hint={grinder ? referenceRangeLabel(grinder, lang) ?? undefined : undefined}
             />
             <View style={styles.ratingBlock}>
-              {RATING_CATEGORIES.map((category) => (
+              {ratingCategories.map((category) => (
                 <View key={category.key} style={styles.ratingRow}>
                   <AppText variant="small" style={styles.flex}>
                     {category.label}
@@ -464,10 +519,10 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
               ))}
             </View>
             <TextField
-              label="Notes"
+              label={t.timer.notesLabel}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Sweetness, body, what to change next time"
+              placeholder={t.timer.notesPlaceholder}
               multiline
               maxLength={600}
             />
@@ -476,19 +531,20 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
           <View style={styles.form}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Back"
+              accessibilityLabel={t.common.back}
+              hitSlop={6}
               onPress={() => setPicker(null)}
               style={({ pressed }) => [styles.pickerBack, { opacity: pressed ? 0.6 : 1 }]}>
-              <Ionicons name="chevron-back" size={16} color={theme.textMuted} />
+              <AppIcon name="chevron-left" size={16} color={theme.textMuted} />
               <AppText variant="small" tone="muted">
-                Back
+                {t.common.back}
               </AppText>
             </Pressable>
             {picker === 'bean' ? (
               <>
                 <PickerOption
-                  label="No coffee"
-                  detail="Save without attaching a bag"
+                  label={t.timer.noCoffeeOption}
+                  detail={t.timer.noCoffeeDetail}
                   selected={beanId == null}
                   onPress={() => {
                     setBeanId(null);
@@ -499,7 +555,12 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
                   <PickerOption
                     key={item.id}
                     label={item.name}
-                    detail={[item.process, item.roastLevel].filter(Boolean).join(' · ')}
+                    detail={[
+                      localizeProcessMethod(item.process, lang),
+                      localizeRoastLevel(item.roastLevel, lang),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                     selected={beanId === item.id}
                     onPress={() => {
                       setBeanId(item.id);
@@ -511,8 +572,8 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
             ) : (
               <>
                 <PickerOption
-                  label="No grinder"
-                  detail="Skip the grind record"
+                  label={t.timer.noGrinderOption}
+                  detail={t.timer.noGrinderDetail}
                   selected={grinderId == null}
                   onPress={() => {
                     setGrinderId(null);
@@ -524,7 +585,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
                   <PickerOption
                     key={item.id}
                     label={item.name}
-                    detail={`${item.clicksPerRotation} clicks/rotation`}
+                    detail={t.brew.clicksPerRotation(item.clicksPerRotation)}
                     selected={grinderId === item.id}
                     onPress={() => {
                       setGrinderId(item.id);
@@ -563,9 +624,9 @@ function PickerOption({
       style={({ pressed }) => [
         styles.pickerOption,
         {
-          backgroundColor: selected ? theme.primarySoft : 'transparent',
-          borderColor: selected ? theme.borderStrong : theme.border,
-          opacity: pressed ? 0.7 : 1,
+          backgroundColor: selected ? theme.accentSoft : 'transparent',
+          borderColor: selected ? theme.accent : theme.border,
+          opacity: pressed ? 0.72 : 1,
         },
       ]}>
       <View style={styles.flex}>
@@ -576,7 +637,7 @@ function PickerOption({
           </AppText>
         ) : null}
       </View>
-      {selected ? <Ionicons name="checkmark-circle" size={18} color={theme.gold} /> : null}
+      {selected ? <AppIcon name="check" size={18} color={theme.accent} /> : null}
     </Pressable>
   );
 }
@@ -592,27 +653,41 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   headerButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerCenter: { flex: 1, alignItems: 'center', gap: 1 },
-  content: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, flexGrow: 1, justifyContent: 'center' },
-  ringWrap: { alignItems: 'center', marginTop: Spacing.sm, marginBottom: Spacing.xl },
+  content: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  ringWrap: { alignItems: 'center', marginTop: Spacing.xs, marginBottom: Spacing.lg },
   ringLabel: { marginTop: Spacing.xs },
   stageCard: {
     backgroundColor: BrandSurface.bgDeep,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: BrandSurface.border,
+    padding: Spacing.lg,
     gap: Spacing.md,
   },
   stageTop: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
   targetRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.xs },
-  target: { fontSize: 40, lineHeight: 46 },
+  target: { fontSize: 40, lineHeight: 44 },
   stageTimerBox: { alignItems: 'flex-end', gap: 2 },
-  stageTimer: { fontSize: 20 },
+  stageTimer: { fontSize: 20, lineHeight: 26 },
   instruction: { lineHeight: 20 },
+  nextPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   rail: { flexDirection: 'row', gap: 4, marginTop: Spacing.xs },
   railSegment: { flex: 1, height: 4, borderRadius: 2 },
   railLabels: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -621,10 +696,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     marginTop: Spacing.md,
-    padding: Spacing.lg,
-    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: BrandSurface.line,
+    borderColor: BrandSurface.border,
+    backgroundColor: BrandSurface.bgDeep,
   },
   controls: {
     paddingHorizontal: Spacing.lg,
@@ -632,15 +708,26 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   secondaryRow: { flexDirection: 'row', gap: Spacing.sm },
-  textButton: { alignItems: 'center', paddingVertical: Spacing.sm },
+  textButton: {
+    minHeight: TouchTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   form: { gap: Spacing.md },
-  ratingBlock: { gap: Spacing.sm, paddingVertical: Spacing.xs },
+  ratingBlock: { gap: Spacing.xs, paddingVertical: Spacing.xs },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  pickerBack: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingBottom: Spacing.xs },
+  pickerBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 36,
+    paddingBottom: Spacing.xs,
+  },
   pickerOption: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+    minHeight: 52,
     padding: Spacing.md,
     borderRadius: Radius.md,
     borderWidth: 1,

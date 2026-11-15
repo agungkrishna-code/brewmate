@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { Radius, Spacing } from '@/constants/theme';
+import { FontFamily, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { Ionicons, type IconName } from './icon';
+import { AppIcon, type IconName } from './icon';
 import { AppText } from './text';
 
 interface ChipProps {
@@ -9,35 +9,38 @@ interface ChipProps {
   selected?: boolean;
   onPress?: () => void;
   icon?: IconName;
-  tone?: 'default' | 'gold';
+  tone?: 'default' | 'accent' | 'gold';
   style?: StyleProp<ViewStyle>;
 }
 
 export function Chip({ label, selected, onPress, icon, tone = 'default', style }: ChipProps) {
   const theme = useTheme();
-  const accent = tone === 'gold' ? theme.gold : theme.primary;
+  const solid = tone === 'accent' || tone === 'gold';
+  const activeBg = solid ? theme.accent : theme.accentSoft;
+  const activeFg = solid ? theme.onAccent : theme.accent;
 
   const content = (
     <View
       style={[
         styles.chip,
         {
-          backgroundColor: selected ? accent : theme.surface,
-          borderColor: selected ? accent : theme.border,
+          backgroundColor: selected ? activeBg : theme.surface,
+          borderColor: selected ? theme.accent : theme.border,
         },
         style,
       ]}>
       {icon ? (
-        <Ionicons
+        <AppIcon
           name={icon}
           size={13}
-          color={selected ? theme.onPrimary : theme.textMuted}
+          color={selected ? activeFg : theme.textMuted}
         />
       ) : null}
       <AppText
-        variant="caption"
-        color={selected ? theme.onPrimary : theme.textMuted}
-        style={styles.label}>
+        variant="small"
+        tabular
+        color={selected ? activeFg : theme.text}
+        style={[styles.label, selected && styles.labelSelected]}>
         {label}
       </AppText>
     </View>
@@ -50,8 +53,9 @@ export function Chip({ label, selected, onPress, icon, tone = 'default', style }
       accessibilityRole="button"
       accessibilityState={{ selected: Boolean(selected) }}
       accessibilityLabel={label}
+      hitSlop={4}
       onPress={onPress}
-      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+      style={({ pressed }) => [{ opacity: pressed ? 0.72 : 1 }]}>
       {content}
     </Pressable>
   );
@@ -59,34 +63,37 @@ export function Chip({ label, selected, onPress, icon, tone = 'default', style }
 
 interface ChipRowProps {
   children: React.ReactNode;
-  /** Horizontal scrolling for long filter lists. */
-  scroll?: boolean;
+  scrollable?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
-export function ChipRow({ children, scroll = true }: ChipRowProps) {
-  if (!scroll) return <View style={styles.row}>{children}</View>;
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.scrollRow}>
-      {children}
-    </ScrollView>
-  );
+export function ChipRow({ children, scrollable, style }: ChipRowProps) {
+  if (scrollable) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollRow, style]}>
+        {children}
+      </ScrollView>
+    );
+  }
+  return <View style={[styles.wrapRow, style]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
+    gap: 6,
+    minHeight: 38,
     paddingHorizontal: Spacing.md,
-    borderRadius: Radius.pill,
+    paddingVertical: 7,
+    borderRadius: Radius.sm,
     borderWidth: 1,
-    alignSelf: 'flex-start',
   },
-  label: { fontSize: 12.5 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  scrollRow: { flexDirection: 'row', gap: Spacing.sm, paddingRight: Spacing.lg },
+  label: { fontSize: 13, lineHeight: 18 },
+  labelSelected: { fontFamily: FontFamily.sansMedium },
+  scrollRow: { flexDirection: 'row', gap: Spacing.sm, paddingRight: Spacing.md },
+  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
 });

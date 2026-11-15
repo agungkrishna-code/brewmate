@@ -135,6 +135,14 @@ export async function listFavoriteRecipes(
   return all.filter((recipe) => recipe.isFavorite).slice(0, limit);
 }
 
+/** Total number of starred recipes, independent of the carousel `limit`. */
+export async function countFavoriteRecipes(db: SQLiteDatabase): Promise<number> {
+  const row = await db.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) AS count FROM brew_recipes WHERE is_favorite = 1'
+  );
+  return row?.count ?? 0;
+}
+
 /** The recipe behind the most recent brew, falling back to the newest recipe. */
 export async function getLastUsedRecipe(db: SQLiteDatabase): Promise<BrewRecipe | null> {
   const usage = await db.getFirstAsync<{ recipe_id: string }>(
@@ -254,11 +262,15 @@ export async function updateRecipe(
   });
 }
 
-export async function duplicateRecipe(db: SQLiteDatabase, id: string): Promise<string | null> {
+export async function duplicateRecipe(
+  db: SQLiteDatabase,
+  id: string,
+  copySuffix = '(copy)'
+): Promise<string | null> {
   const source = await getRecipe(db, id);
   if (!source) return null;
   return createRecipe(db, {
-    name: `${source.name} (copy)`,
+    name: `${source.name} ${copySuffix}`,
     description: source.description ?? '',
     coffeeDoseG: source.coffeeDoseG,
     ratio: source.ratio,

@@ -2,14 +2,15 @@ import { Facts } from '@/components/brewing/facts';
 import { StageList } from '@/components/brewing/stage-list';
 import { BrandCard, BrandLabel } from '@/components/common/brand-card';
 import { Button, IconButton } from '@/components/common/button';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, ErrorState, LoadingState } from '@/components/common/empty-state';
 import { Screen } from '@/components/common/screen';
 import { Badge, DataRow, SectionHeader } from '@/components/common/section';
 import { AppText } from '@/components/common/text';
-import { DISCLAIMERS } from '@/constants/defaults';
+import { getDisclaimers, localizeStarterRecipe } from '@/constants/defaults';
 import { BrandSurface, Radius, Spacing } from '@/constants/theme';
 import { useBrewDraft } from '@/contexts/brew-draft-context';
 import { useDatabase, useFocusedQuery } from '@/hooks/use-database';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { buildTimeline, brewDraftFromRecipe } from '@/services/brewing/timeline';
 import { deleteRecipe, duplicateRecipe, getRecipe, setRecipeFavorite } from '@/services/recipes';
@@ -23,11 +24,13 @@ import { Alert, StyleSheet, View } from 'react-native';
 export default function RecipeDetailScreen() {
   const theme = useTheme();
   const db = useDatabase();
+  const { lang, t } = useTranslation();
+  const disclaimers = getDisclaimers(lang);
   const { beginBrew } = useBrewDraft();
   const { id } = useLocalSearchParams<{ id: string }>();
   const recipeId = typeof id === 'string' ? id : '';
 
-  const { data, loading, reload } = useFocusedQuery(
+  const { data, loading, error, reload } = useFocusedQuery(
     async (database) => {
       const recipe = recipeId ? await getRecipe(database, recipeId) : null;
       const grinder = recipe?.grinderProfileId
@@ -56,22 +59,22 @@ export default function RecipeDetailScreen() {
     if (!data) return;
     setBusy(true);
     try {
-      const newId = await duplicateRecipe(db, data.recipe.id);
+      const newId = await duplicateRecipe(db, data.recipe.id, t.recipes.copySuffix);
       if (newId) router.push(`/recipes/${newId}`);
     } finally {
       setBusy(false);
     }
-  }, [data, db]);
+  }, [data, db, t.recipes.copySuffix]);
 
   const confirmDelete = useCallback(() => {
     if (!data) return;
     Alert.alert(
-      'Delete recipe?',
-      `"${data.recipe.name}" will be removed. Brew sessions logged with it keep their own snapshot.`,
+      t.recipes.deleteTitle,
+      t.recipes.deleteMsg(data.recipe.name),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'Delete',
+          text: t.common.delete,
           style: 'destructive',
           onPress: async () => {
             await deleteRecipe(db, data.recipe.id);
@@ -80,15 +83,23 @@ export default function RecipeDetailScreen() {
         },
       ]
     );
-  }, [data, db]);
+  }, [data, db, t]);
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <Screen>
         <View style={styles.loading}>
-          <AppText variant="small" tone="muted">
-            Loading recipe…
-          </AppText>
+          <LoadingState label={t.recipes.detailLoading} />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <Screen>
+        <View style={styles.loading}>
+          <ErrorState message={error} onRetry={reload} />
         </View>
       </Screen>
     );
@@ -99,10 +110,10 @@ export default function RecipeDetailScreen() {
       <Screen>
         <View style={styles.loading}>
           <EmptyState
-            icon="alert-circle-outline"
-            title="Recipe not found"
-            description="This recipe may have been deleted."
-            actionLabel="Back to recipes"
+            icon="alert-circle"
+            title={t.recipes.notFoundTitle}
+            description={t.recipes.notFoundDesc}
+            actionLabel={t.recipes.backToRecipes}
             onAction={() => router.replace('/recipes')}
           />
         </View>
@@ -110,17 +121,19 @@ export default function RecipeDetailScreen() {
     );
   }
 
-  const { recipe, grinder } = data;
+  const recipe = localizeStarterRecipe(data.recipe, lang);
+  const { grinder } = data;
   const timeline = buildTimeline(recipe.steps);
   const totalWater = recipe.totalWaterG;
 
   return (
     <Screen
       footer={
-        <View style={[styles.footer, { borderTopColor: theme.border }]}>
+        <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
           <Button
-            label="Start brewing"
+            label={t.recipes.startBrewing}
             icon="play"
+            variant="accent"
             size="lg"
             onPress={startBrew}
             fullWidth
@@ -128,25 +141,28 @@ export default function RecipeDetailScreen() {
         </View>
       }>
       <View style={styles.topBar}>
-        <IconButton icon="chevron-back" label="Go back" onPress={() => router.back()} />
+        <IconButton icon="chevron-left" label={t.common.back} onPress={() => router.back()} />
         <View style={styles.flex} />
         <IconButton
-          icon={recipe.isFavorite ? 'star' : 'star-outline'}
-          label={recipe.isFavorite ? 'Remove from favourites' : 'Add to favourites'}
+          icon="star"
+          color={recipe.isFavorite ? theme.accent : theme.textMuted}
+          label={recipe.isFavorite ? t.recipes.removeFavA11y : t.recipes.addFavA11y}
           onPress={toggleFavorite}
         />
         <IconButton
-          icon="create-outline"
-          label="Edit recipe"
+          icon="edit"
+          label={t.recipes.editA11y}
           onPress={() => router.push(`/recipes/edit?id=${recipe.id}`)}
         />
       </View>
 
       <View style={styles.titleBlock}>
-        <View style={styles.badgeRow}>
-          {recipe.isStarter ? <Badge label="Starter recipe" tone="gold" /> : null}
-          {recipe.isFavorite ? <Badge label="Favourite" /> : null}
-        </View>
+        {recipe.isStarter || recipe.isFavorite ? (
+          <View style={styles.badgeRow}>
+            {recipe.isStarter ? <Badge label={t.recipes.starterBadge} tone="accent" /> : null}
+            {recipe.isFavorite ? <Badge label={t.recipes.favouriteBadge} /> : null}
+          </View>
+        ) : null}
         <AppText variant="display">{recipe.name}</AppText>
         {recipe.description ? (
           <AppText variant="small" tone="muted" style={styles.description}>
@@ -156,81 +172,94 @@ export default function RecipeDetailScreen() {
       </View>
 
       <BrandCard style={styles.hero}>
-        <BrandLabel>Brew plan</BrandLabel>
-        <AppText variant="h1" color={BrandSurface.text}>
-          {formatWeight(totalWater, true)} water
+        <BrandLabel>{t.recipes.brewPlan}</BrandLabel>
+        <AppText variant="metricHero" color={BrandSurface.text}>
+          {formatWeight(totalWater, true)}
         </AppText>
-        <AppText variant="small" color={BrandSurface.muted}>
-          {formatWeight(recipe.coffeeDoseG, true)} coffee · {formatRatio(recipe.ratio)} ·{' '}
-          {formatDuration(recipe.targetTimeS || timeline[timeline.length - 1]?.endS || 0)}
+        <AppText variant="small" color={BrandSurface.muted} tabular>
+          {t.recipes.planSummary(
+            formatWeight(recipe.coffeeDoseG, true),
+            formatRatio(recipe.ratio),
+            formatDuration(recipe.targetTimeS || timeline[timeline.length - 1]?.endS || 0)
+          )}
         </AppText>
         <View style={[styles.divider, { backgroundColor: BrandSurface.line }]} />
         <Facts
           tone="brand"
           items={[
-            { label: 'Dose', value: formatWeight(recipe.coffeeDoseG), unit: 'g' },
-            { label: 'Water', value: formatWeight(totalWater), unit: 'g' },
-            { label: 'Ratio', value: formatRatio(recipe.ratio) },
-            { label: 'Temp', value: String(Math.round(recipe.waterTempC)), unit: '°C' },
+            { label: t.common.dose, value: formatWeight(recipe.coffeeDoseG), unit: 'g' },
+            { label: t.common.water, value: formatWeight(totalWater), unit: 'g' },
+            { label: t.common.ratio, value: formatRatio(recipe.ratio) },
+            { label: t.common.temp, value: String(Math.round(recipe.waterTempC)), unit: '°C' },
           ]}
         />
       </BrandCard>
 
       <View style={styles.section}>
         <SectionHeader
-          title="Schedule"
-          subtitle={`${timeline.length} stages · bloom ${formatWeight(
-            recipe.coffeeDoseG * recipe.bloomMultiplier,
-            true
-          )} at ${recipe.bloomMultiplier}×`}
+          title={t.recipes.schedule}
+          subtitle={t.recipes.scheduleSub(
+            timeline.length,
+            formatWeight(recipe.coffeeDoseG * recipe.bloomMultiplier, true),
+            recipe.bloomMultiplier
+          )}
         />
         <StageList stages={timeline} />
       </View>
 
       <View style={styles.section}>
-        <SectionHeader title="Equipment" />
+        <SectionHeader title={t.recipes.equipment} />
         <View style={[styles.detailCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <DataRow label="Grinder" value={grinder?.name ?? 'Not set'} emphasis={Boolean(grinder)} />
+          <DataRow label={t.recipes.grinder} value={grinder?.name ?? t.common.notSet} emphasis={Boolean(grinder)} />
           <DataRow
-            label="Grind setting"
+            label={t.recipes.grindSetting}
+            tabular
             value={
               grinder && recipe.grindSetting != null
-                ? formatSetting(grinder, recipe.grindSetting)
-                : 'Not set'
+                ? formatSetting(grinder, recipe.grindSetting, lang)
+                : t.common.notSet
             }
             emphasis={recipe.grindSetting != null}
           />
           {grinder && recipe.grindSetting != null ? (
-            <DataRow label="Click maths" value={settingDetail(grinder, recipe.grindSetting)} />
+            <DataRow
+              label={t.recipes.clickMaths}
+              tabular
+              value={settingDetail(grinder, recipe.grindSetting, lang)}
+            />
           ) : null}
-          <DataRow label="Water temperature" value={formatTemperature(recipe.waterTempC)} />
-          <DataRow label="Target brew time" value={formatDuration(recipe.targetTimeS)} />
+          <DataRow label={t.recipes.waterTemp} tabular value={formatTemperature(recipe.waterTempC)} />
+          <DataRow label={t.recipes.targetBrewTime} tabular last value={formatDuration(recipe.targetTimeS)} />
         </View>
       </View>
 
       {recipe.notes ? (
         <View style={styles.section}>
-          <SectionHeader title="Notes" />
-          <View style={[styles.notesCard, { backgroundColor: theme.goldSoft }]}>
+          <SectionHeader title={t.recipes.notes} />
+          <View
+            style={[
+              styles.notesCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}>
             <AppText variant="body">{recipe.notes}</AppText>
           </View>
         </View>
       ) : null}
 
       <View style={styles.section}>
-        <SectionHeader title="Manage" />
+        <SectionHeader title={t.recipes.manage} />
         <View style={styles.manageRow}>
           <Button
-            label="Duplicate"
-            icon="copy-outline"
+            label={t.recipes.duplicate}
+            icon="copy"
             variant="secondary"
             onPress={duplicate}
             loading={busy}
             style={styles.flex}
           />
           <Button
-            label="Delete"
-            icon="trash-outline"
+            label={t.common.delete}
+            icon="trash"
             variant="danger"
             onPress={confirmDelete}
             style={styles.flex}
@@ -239,7 +268,7 @@ export default function RecipeDetailScreen() {
       </View>
 
       <AppText variant="caption" tone="faint" align="center" style={styles.disclaimer}>
-        {recipe.isStarter ? DISCLAIMERS.starterRecipes : 'Saved locally on this device only.'}
+        {recipe.isStarter ? disclaimers.starterRecipes : t.common.savedLocally}
       </AppText>
     </Screen>
   );
@@ -253,18 +282,22 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingTop: Spacing.md,
   },
-  titleBlock: { paddingTop: Spacing.lg, gap: Spacing.sm },
-  badgeRow: { flexDirection: 'row', gap: Spacing.xs },
+  titleBlock: { paddingTop: Spacing.lg, gap: Spacing.xs },
+  badgeRow: { flexDirection: 'row', gap: Spacing.xs, marginBottom: 2 },
   description: { marginTop: 2 },
   hero: { marginTop: Spacing.xl, gap: Spacing.xs },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: Spacing.md },
   section: { marginTop: Spacing.xxl },
   detailCard: {
     borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     paddingHorizontal: Spacing.md,
   },
-  notesCard: { borderRadius: Radius.md, padding: Spacing.lg },
+  notesCard: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    padding: Spacing.md,
+  },
   manageRow: { flexDirection: 'row', gap: Spacing.sm },
   disclaimer: { marginTop: Spacing.xl },
   footer: {

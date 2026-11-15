@@ -4,23 +4,25 @@ import { Dot, SectionHeader } from '@/components/common/section';
 import { AppText } from '@/components/common/text';
 import { getGuideArticle, type GuideBlock } from '@/constants/guide';
 import { Radius, Spacing } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 export default function GuideArticleScreen() {
   const theme = useTheme();
+  const { lang, t } = useTranslation();
   const { slug } = useLocalSearchParams<{ slug: string }>();
-  const article = getGuideArticle(typeof slug === 'string' ? slug : '');
+  const article = getGuideArticle(typeof slug === 'string' ? slug : '', lang);
 
   if (!article) {
     return (
-      <StackScreen title="Guide">
+      <StackScreen title={t.guide.pageTitle}>
         <EmptyState
-          icon="alert-circle-outline"
-          title="Guide not found"
-          description="That page is not in the guide. Open the index and pick another article."
-          actionLabel="Back to the guide"
+          icon="alert-circle"
+          title={t.guide.articleNotFoundTitle}
+          description={t.guide.articleNotFoundDesc}
+          actionLabel={t.guide.backToGuide}
           onAction={() => router.replace('/guide')}
         />
       </StackScreen>
@@ -45,7 +47,7 @@ export default function GuideArticleScreen() {
       ))}
 
       <View style={styles.section}>
-        <SectionHeader title="Sources" />
+        <SectionHeader title={t.guide.sourcesTitle} />
         <View style={[styles.sources, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {article.sources.map((source, index) => (
             <View
@@ -66,7 +68,7 @@ export default function GuideArticleScreen() {
           ))}
         </View>
         <AppText variant="caption" tone="faint" style={styles.footnote}>
-          General guidance, not a guarantee. Change one variable at a time and taste the result.
+          {t.guide.articleFootnote}
         </AppText>
       </View>
     </StackScreen>
@@ -110,8 +112,12 @@ function GuideBlockView({
       <View style={styles.steps}>
         {block.items.map((item) => (
           <View key={`${item.label}-${item.title}`} style={styles.stepRow}>
-            <View style={[styles.stepLabel, { backgroundColor: theme.surfaceSunken }]}>
-              <AppText variant="caption" tone="primary">
+            <View
+              style={[
+                styles.stepLabel,
+                { backgroundColor: theme.surfaceSunken, borderColor: theme.border },
+              ]}>
+              <AppText variant="caption" tabular color={theme.text}>
                 {item.label}
               </AppText>
             </View>
@@ -143,7 +149,7 @@ function GuideBlockView({
               <AppText variant="small" tone="muted" style={styles.flex}>
                 {row.label}
               </AppText>
-              <AppText variant="small" style={styles.tableValue}>
+              <AppText variant="metricSmall" tabular style={styles.tableValue}>
                 {row.value}
               </AppText>
             </View>
@@ -159,7 +165,15 @@ function GuideBlockView({
   }
 
   return (
-    <View style={[styles.note, { backgroundColor: theme.goldSoft }]}>
+    <View
+      style={[
+        styles.note,
+        {
+          backgroundColor: theme.surface,
+          borderColor: theme.border,
+          borderLeftColor: theme.accent,
+        },
+      ]}>
       <AppText variant="small">{block.text}</AppText>
     </View>
   );
@@ -171,30 +185,36 @@ const styles = StyleSheet.create({
   paragraph: { marginBottom: Spacing.xs },
   bullets: { gap: Spacing.sm },
   bulletRow: { flexDirection: 'row', gap: Spacing.sm },
-  dot: { paddingTop: 6 },
+  dot: { paddingTop: 7 },
   steps: { gap: Spacing.md },
   stepRow: { flexDirection: 'row', gap: Spacing.md },
   stepLabel: {
-    minWidth: 44,
+    minWidth: 46,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.xs,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     alignSelf: 'flex-start',
   },
   table: {
     borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     paddingHorizontal: Spacing.md,
   },
-  tableRow: { paddingVertical: Spacing.sm + 2, gap: 2 },
+  tableRow: { paddingVertical: Spacing.sm + 3, gap: 2 },
   tableTop: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.md },
   tableValue: { flexShrink: 1, textAlign: 'right' },
   tableHint: { marginTop: 1 },
-  note: { borderRadius: Radius.md, padding: Spacing.md },
+  note: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    padding: Spacing.md,
+  },
   sources: {
     borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     paddingHorizontal: Spacing.md,
   },
   sourceRow: { paddingVertical: Spacing.md, gap: 2 },

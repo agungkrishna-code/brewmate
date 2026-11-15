@@ -1,5 +1,7 @@
-/** User preferences: theme, haptics and screen-awake behaviour. */
+/** User preferences: theme, language, haptics and screen-awake behaviour. */
 
+import type { ThemePreference } from '@/constants/theme';
+import type { LanguagePreference } from '@/i18n';
 import {
   PREFERENCE_KEYS,
   readPreferences,
@@ -7,7 +9,6 @@ import {
   setPreference,
   type Preferences,
 } from '@/services/preferences';
-import type { ThemePreference } from '@/constants/theme';
 import { useSQLiteContext } from 'expo-sqlite';
 import {
   createContext,
@@ -21,6 +22,7 @@ import {
 
 const FALLBACK: Preferences = {
   themeMode: 'system',
+  language: 'system',
   haptics: true,
   keepAwake: true,
   lastGrinderId: null,
@@ -31,6 +33,7 @@ interface SettingsContextValue {
   ready: boolean;
   update: (patch: Partial<Preferences>) => Promise<void>;
   setThemeMode: (mode: ThemePreference) => Promise<void>;
+  setLanguage: (language: LanguagePreference) => Promise<void>;
   setHaptics: (enabled: boolean) => Promise<void>;
   setKeepAwake: (enabled: boolean) => Promise<void>;
   setLastGrinderId: (id: string | null) => Promise<void>;
@@ -73,6 +76,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       if (patch.themeMode !== undefined) {
         await setPreference(db, PREFERENCE_KEYS.themeMode, patch.themeMode);
       }
+      if (patch.language !== undefined) {
+        await setPreference(db, PREFERENCE_KEYS.language, patch.language);
+      }
       if (patch.haptics !== undefined) {
         await setPreference(db, PREFERENCE_KEYS.haptics, String(patch.haptics));
       }
@@ -96,6 +102,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       ready,
       update,
       setThemeMode: (mode) => update({ themeMode: mode }),
+      setLanguage: (language) => update({ language }),
       setHaptics: (enabled) => update({ haptics: enabled }),
       setKeepAwake: (enabled) => update({ keepAwake: enabled }),
       setLastGrinderId: (id) => update({ lastGrinderId: id }),

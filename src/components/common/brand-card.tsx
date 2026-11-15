@@ -9,7 +9,7 @@ interface BrandCardProps {
   padding?: number;
 }
 
-/** The espresso "brand surface" used for hero cards and the brewing screen. */
+/** Matte charcoal instrument surface used for hero readouts and active brew panels. */
 export function BrandCard({ children, style, padding = 20 }: BrandCardProps) {
   return (
     <View style={[styles.card, { padding }, style]}>
@@ -30,17 +30,17 @@ export function BrandLabel({ children }: { children: ReactNode }) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: BrandSurface.bg,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: BrandSurface.border,
     overflow: 'hidden',
   },
-  // A hairline of gold at the very top instead of a glow: reads as a lit edge
-  // and never competes with the content.
   topRule: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 1,
-    backgroundColor: 'rgba(199, 166, 117, 0.42)',
+    height: 2,
+    backgroundColor: BrandSurface.accent,
   },
 });

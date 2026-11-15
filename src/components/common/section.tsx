@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { FontFamily, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { Ionicons } from './icon';
+import { AppIcon } from './icon';
 import { AppText } from './text';
 
 interface SectionHeaderProps {
@@ -37,12 +37,12 @@ export function SectionHeader({
           accessibilityRole="button"
           accessibilityLabel={actionLabel}
           onPress={onAction}
-          hitSlop={8}
+          hitSlop={10}
           style={({ pressed }) => [styles.action, { opacity: pressed ? 0.6 : 1 }]}>
-          <AppText variant="caption" color={theme.primary} style={styles.actionLabel}>
+          <AppText variant="small" color={theme.accent} style={styles.actionLabel}>
             {actionLabel}
           </AppText>
-          <Ionicons name="chevron-forward" size={13} color={theme.primary} />
+          <AppIcon name="chevron-right" size={14} color={theme.accent} />
         </Pressable>
       ) : null}
     </View>
@@ -54,31 +54,52 @@ interface DataRowProps {
   value: ReactNode;
   /** Renders the value with more weight. */
   emphasis?: boolean;
-  /** Hide the label and render the value full width. */
+  /** Render the value with tabular numbers. */
+  tabular?: boolean;
+  /** Hide the horizontal alignment and stack label above value. */
   stacked?: boolean;
+  /** Omit bottom hairline on the last row of a group. */
+  last?: boolean;
 }
 
-export function DataRow({ label, value, emphasis, stacked }: DataRowProps) {
+export function DataRow({ label, value, emphasis, tabular, stacked, last }: DataRowProps) {
   const theme = useTheme();
 
   if (stacked) {
     return (
       <View style={styles.dataStacked}>
-        <AppText variant="label" tone="faint">
+        <AppText variant="fieldLabel" tone="faint">
           {label}
         </AppText>
-        {typeof value === 'string' ? <AppText variant="body">{value}</AppText> : value}
+        {typeof value === 'string' ? (
+          <AppText variant="body" tabular={tabular}>
+            {value}
+          </AppText>
+        ) : (
+          value
+        )}
       </View>
     );
   }
 
   return (
-    <View style={[styles.dataRow, { borderBottomColor: theme.border }]}>
+    <View
+      style={[
+        styles.dataRow,
+        !last && {
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: theme.border,
+        },
+      ]}>
       <AppText variant="small" tone="muted" style={styles.flex}>
         {label}
       </AppText>
       {typeof value === 'string' ? (
-        <AppText variant={emphasis ? 'bodyStrong' : 'small'} align="right" style={styles.value}>
+        <AppText
+          variant={emphasis ? 'bodyStrong' : 'small'}
+          tabular={tabular}
+          align="right"
+          style={styles.value}>
           {value}
         </AppText>
       ) : (
@@ -90,7 +111,9 @@ export function DataRow({ label, value, emphasis, stacked }: DataRowProps) {
 
 export function Divider({ style }: { style?: object }) {
   const theme = useTheme();
-  return <View style={[{ height: StyleSheet.hairlineWidth, backgroundColor: theme.border }, style]} />;
+  return (
+    <View style={[{ height: StyleSheet.hairlineWidth, backgroundColor: theme.border }, style]} />
+  );
 }
 
 export function Dot({ color, size = 6 }: { color?: string; size?: number }) {
@@ -101,7 +124,7 @@ export function Dot({ color, size = 6 }: { color?: string; size?: number }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: color ?? theme.gold,
+        backgroundColor: color ?? theme.accent,
       }}
     />
   );
@@ -109,14 +132,15 @@ export function Dot({ color, size = 6 }: { color?: string; size?: number }) {
 
 interface BadgeProps {
   label: string;
-  tone?: 'neutral' | 'gold' | 'success' | 'danger';
+  tone?: 'neutral' | 'accent' | 'gold' | 'success' | 'danger';
 }
 
 export function Badge({ label, tone = 'neutral' }: BadgeProps) {
   const theme = useTheme();
   const palette = {
     neutral: { bg: theme.surfaceSunken, fg: theme.textMuted },
-    gold: { bg: theme.goldSoft, fg: theme.mode === 'dark' ? theme.gold : '#7A5A2E' },
+    accent: { bg: theme.accentSoft, fg: theme.accent },
+    gold: { bg: theme.accentSoft, fg: theme.accent },
     success: { bg: theme.primarySoft, fg: theme.success },
     danger: { bg: theme.dangerSoft, fg: theme.danger },
   }[tone];
@@ -139,21 +163,26 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   subtitle: { marginTop: 2 },
-  action: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingBottom: 2 },
+  action: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    minHeight: 32,
+    justifyContent: 'center',
+  },
   actionLabel: { fontFamily: FontFamily.sansMedium },
   dataRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: Spacing.sm + 3,
   },
-  dataStacked: { gap: 2, paddingVertical: Spacing.sm },
+  dataStacked: { gap: 4, paddingVertical: Spacing.sm },
   value: { flexShrink: 1 },
   badge: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.xs,
     alignSelf: 'flex-start',
   },
   badgeLabel: { fontSize: 11, fontFamily: FontFamily.sansMedium },

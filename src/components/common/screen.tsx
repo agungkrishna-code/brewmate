@@ -1,6 +1,8 @@
 import { router } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,9 +11,10 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing, TouchTarget } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
-import { Ionicons } from './icon';
+import { AppIcon } from './icon';
 import { AppText } from './text';
 
 interface ScreenProps {
@@ -35,6 +38,7 @@ export function Screen({
 }: ScreenProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const [footerHeight, setFooterHeight] = useState(0);
 
   const content = scroll ? (
     <ScrollView
@@ -43,7 +47,10 @@ export function Screen({
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={[
         padded && styles.padded,
-        { paddingBottom: insets.bottom + Spacing.xxl },
+        {
+          paddingBottom:
+            insets.bottom + Spacing.xxl + (footer ? footerHeight : 0),
+        },
         contentStyle,
       ]}>
       {children}
@@ -53,13 +60,19 @@ export function Screen({
   );
 
   return (
-    <View style={[{ flex: 1, backgroundColor: theme.bg }, style]}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[{ flex: 1, backgroundColor: theme.bg }, style]}>
       <View style={{ height: insets.top }} />
       {content}
       {footer ? (
-        <View style={{ paddingBottom: Math.max(insets.bottom, Spacing.sm) }}>{footer}</View>
+        <View
+          onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
+          style={{ paddingBottom: Math.max(insets.bottom, Spacing.sm) }}>
+          {footer}
+        </View>
       ) : null}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -69,7 +82,7 @@ interface StackScreenProps extends Omit<ScreenProps, 'children'> {
   children: ReactNode;
   right?: ReactNode;
   onBack?: () => void;
-  /** Shows a large serif title under the back row. */
+  /** Shows a serif title under the back row. */
   largeTitle?: boolean;
 }
 
@@ -86,27 +99,32 @@ export function StackScreen({
   largeTitle = true,
 }: StackScreenProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   return (
     <Screen scroll={scroll} padded={padded} contentStyle={contentStyle} footer={footer}>
       <View style={styles.navRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Go back"
-          hitSlop={8}
+          accessibilityLabel={t.common.back}
+          hitSlop={6}
           onPress={onBack ?? (() => router.back())}
           style={({ pressed }) => [
             styles.backButton,
-            { backgroundColor: theme.surfaceSunken, opacity: pressed ? 0.6 : 1 },
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              opacity: pressed ? 0.65 : 1,
+            },
           ]}>
-          <Ionicons name="chevron-back" size={20} color={theme.text} />
+          <AppIcon name="chevron-left" size={20} color={theme.text} />
         </Pressable>
         <View style={styles.navSpacer} />
         {right}
       </View>
 
       {largeTitle ? (
-        <View style={styles.titleBlock}>
+        <View style={[styles.titleBlock, { borderBottomColor: theme.border }]}>
           <AppText variant="h1">{title}</AppText>
           {subtitle ? (
             <AppText variant="small" tone="muted" style={styles.subtitle}>
@@ -128,16 +146,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: Spacing.md,
-    minHeight: 44,
+    minHeight: TouchTarget,
   },
   navSpacer: { flex: 1 },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.pill,
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  titleBlock: { paddingTop: Spacing.lg, paddingBottom: Spacing.xl },
+  titleBlock: {
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   subtitle: { marginTop: Spacing.xs },
 });

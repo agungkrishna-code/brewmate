@@ -69,7 +69,33 @@ Write-Host "Build root:  $buildRoot"
 Write-Host "Android SDK: $env:ANDROID_HOME"
 
 # ------------------------------------------------------------ native project
-if (-not (Test-Path (Join-Path $buildRoot 'android'))) {
+$androidDir = Join-Path $buildRoot 'android'
+$needsPrebuild = -not (Test-Path $androidDir)
+
+if (-not $needsPrebuild) {
+  # app.json is the source of truth for versionName/versionCode. A pre-existing
+  # (gitignored) native project keeps the version it was generated with, so a
+  # stale checkout would silently build an APK labelled with the old release.
+  $gradleFile = Join-Path $androidDir 'app\build.gradle'
+  $appJsonFile = Join-Path $buildRoot 'app.json'
+  if ((Test-Path $gradleFile) -and (Test-Path $appJsonFile)) {
+    $expoConfig = (Get-Content $appJsonFile -Raw | ConvertFrom-Json).expo
+    $gradleText = Get-Content $gradleFile -Raw
+    $nameMatch = [regex]::Match($gradleText, 'versionName\s+"([^"]+)"')
+    $codeMatch = [regex]::Match($gradleText, 'versionCode\s+(\d+)')
+    $nativeVersionName = if ($nameMatch.Success) { $nameMatch.Groups[1].Value } else { '' }
+    $nativeVersionCode = if ($codeMatch.Success) { [int]$codeMatch.Groups[1].Value } else { -1 }
+    $wantVersionCode = if ($null -ne $expoConfig.android.versionCode) { [int]$expoConfig.android.versionCode } else { $nativeVersionCode }
+
+    if (($expoConfig.version -and $nativeVersionName -ne $expoConfig.version) -or
+        ($wantVersionCode -ge 0 -and $nativeVersionCode -ne $wantVersionCode)) {
+      Write-Host "Native project is stale (gradle: versionName '$nativeVersionName', versionCode $nativeVersionCode; app.json: '$($expoConfig.version)', versionCode $wantVersionCode). Regenerating…" -ForegroundColor Yellow
+      $needsPrebuild = $true
+    }
+  }
+}
+
+if ($needsPrebuild) {
   Write-Host 'Generating the native Android project…'
   Push-Location $buildRoot
   npx expo prebuild --platform android
@@ -132,7 +158,9 @@ if (-not $sourceApk) { throw 'The build finished but no APK was found.' }
 $targetDir = Join-Path $project "android\app\build\outputs\apk\$Variant"
 New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
 $targetApk = Join-Path $targetDir (Split-Path $sourceApk -Leaf)
-Copy-Item -Path $sourceApk -Destination $targetApk -Force
+if ($sourceApk -ne $targetApk) {
+  Copy-Item -Path $sourceApk -Destination $targetApk -Force
+}
 
 $sizeMb = [math]::Round((Get-Item $targetApk).Length / 1MB, 1)
 Write-Host ''

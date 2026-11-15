@@ -93,8 +93,13 @@ export function normalizeToTotal(amounts: number[], total: number): number[] {
 }
 
 /**
- * Sets one stage to a new weight and keeps the total intact by absorbing the
- * difference in the neighbouring stage. Every stage keeps at least 0.1 g.
+ * Sets one stage to a new weight and keeps the total intact.
+ *
+ * The difference is normally absorbed by the neighbouring stage, which makes an
+ * edit predictable. When that neighbour would drop under the 0.1 g floor (the
+ * edited stage takes most of the water), the remaining stages are rebalanced
+ * proportionally instead: clamping a single stage silently broke the total, and
+ * the timer, the scale targets and the saved brew all trust that total.
  */
 export function adjustStageAmount(
   amounts: number[],
@@ -110,18 +115,56 @@ export function adjustStageAmount(
   const maxValue = Math.max(floor, round1(total - floor * (count - 1)));
   const value = round1(clamp(nextValue, floor, maxValue));
 
+  const fixIndex = index === count - 1 ? count - 2 : count - 1;
+  const targetForOthers = round1(total - value);
+  const otherSum = round1(sum(amounts) - amounts[index]);
+  const absorbed = round1(amounts[fixIndex] + (targetForOthers - otherSum));
+
+  if (absorbed >= floor) {
+    const result = [...amounts];
+    result[index] = value;
+    result[fixIndex] = absorbed;
+    return result;
+  }
+
+  return rebalanceOthers(amounts, index, value, targetForOthers);
+}
+
+/**
+ * Re-spreads `targetForOthers` across every stage except `index`, on the 0.1 g
+ * grid and with the floor respected, so the amounts keep adding up to `total`.
+ */
+function rebalanceOthers(
+  amounts: number[],
+  index: number,
+  value: number,
+  targetForOthers: number
+): number[] {
   const result = [...amounts];
   result[index] = value;
 
-  const fixIndex = index === count - 1 ? count - 2 : count - 1;
-  const targetForOthers = round1(total - value);
-  const otherSum = round1(sum(result.filter((_, position) => position !== index)));
-  result[fixIndex] = Math.max(floor, round1(result[fixIndex] + (targetForOthers - otherSum)));
+  const others = amounts
+    .map((_, position) => position)
+    .filter((position) => position !== index);
+  if (others.length === 0) return result;
 
-  const drift = round1(total - sum(result));
-  if (Math.abs(drift) > 0.001) {
-    result[fixIndex] = Math.max(floor, round1(result[fixIndex] + drift));
-  }
+  const targetTenths = Math.max(0, Math.round(round1(targetForOthers) * 10));
+  const floorTenths = Math.round(WEIGHT_STEP * 10);
+  const spareTenths = Math.max(0, targetTenths - floorTenths * others.length);
+
+  const weights = others.map((position) => Math.max(1, Math.round(Math.abs(amounts[position]) * 10)));
+  const weightSum = weights.reduce((running, weight) => running + weight, 0);
+
+  let remainingSpare = spareTenths;
+  others.forEach((position, order) => {
+    const isLast = order === others.length - 1;
+    const share = isLast
+      ? remainingSpare
+      : Math.min(remainingSpare, Math.floor((spareTenths * weights[order]) / weightSum));
+    result[position] = (floorTenths + share) / 10;
+    remainingSpare -= share;
+  });
+
   return result;
 }
 

@@ -3,19 +3,19 @@ import { Platform, type TextStyle } from 'react-native';
 /**
  * Brewmate design tokens.
  *
- * One system, two moods: a cream "paper" light theme and a deep espresso dark
- * theme. Everything is derived from these values so screens never hard-code a
- * colour.
+ * Tactile precision-instrument system: warm alabaster/stone in light mode,
+ * deep matte charcoal in dark mode, with a single muted copper-amber accent
+ * reserved for active states and primary brewing controls.
  */
 
 export const Palette = {
-  espresso: '#35251E',
-  coffee: '#604637',
-  cream: '#F5F0E8',
-  warmWhite: '#FFFCF7',
-  gold: '#C7A675',
-  softGray: '#8D8983',
-  deepEspresso: '#14100D',
+  stone: '#F4F1EB',
+  alabaster: '#FAF8F4',
+  obsidian: '#1C1917',
+  charcoal: '#131110',
+  instrument: '#1A1715',
+  copper: '#A66334',
+  copperBright: '#C98A56',
 } as const;
 
 export type ThemeMode = 'light' | 'dark';
@@ -27,28 +27,36 @@ export interface AppTheme {
   mode: ThemeMode;
   /** Page background. */
   bg: string;
-  /** Slightly darker page section. */
+  /** Slightly recessed section background. */
   bgSubtle: string;
-  /** Card background. */
+  /** Primary card / grouped list surface. */
   surface: string;
-  /** Card background that needs to sit above another card. */
+  /** Elevated surface above another surface. */
   surfaceRaised: string;
-  /** Inset wells, inputs, chips. */
+  /** Inset wells, inputs, recessed tracks. */
   surfaceSunken: string;
   text: string;
   textMuted: string;
   textFaint: string;
-  /** Primary action background. */
+  /** Primary action background (high-contrast monochrome ink). */
   primary: string;
   onPrimary: string;
   primarySoft: string;
+  /** Single muted copper-amber hardware accent. */
+  accent: string;
+  accentSoft: string;
+  onAccent: string;
+  /** @deprecated Alias for `accent` retained for compatibility. */
   gold: string;
+  /** @deprecated Alias for `accentSoft` retained for compatibility. */
   goldSoft: string;
   border: string;
   borderStrong: string;
   danger: string;
   dangerSoft: string;
   success: string;
+  /** Switch knob. Stays light in both themes so a toggle reads as a physical knob. */
+  switchThumb: string;
   shadow: string;
   tabBar: string;
   tabInactive: string;
@@ -58,72 +66,84 @@ export interface AppTheme {
 export const Themes: Record<ThemeMode, AppTheme> = {
   light: {
     mode: 'light',
-    bg: '#F5F0E8',
-    bgSubtle: '#EDE6D9',
-    surface: '#FFFCF7',
+    bg: '#F4F1EB',
+    bgSubtle: '#EAE5DC',
+    surface: '#FAF8F4',
     surfaceRaised: '#FFFFFF',
-    surfaceSunken: '#EFE8DB',
-    text: '#35251E',
-    textMuted: '#6E6156',
-    textFaint: '#928B83',
-    primary: '#604637',
-    onPrimary: '#FFFCF7',
-    primarySoft: '#EBE0D2',
-    gold: '#B08D57',
-    goldSoft: '#F0E3CB',
-    border: '#E4DACA',
-    borderStrong: '#D2C3AE',
-    danger: '#A6473C',
-    dangerSoft: '#F6E4E1',
-    success: '#5C7A55',
-    shadow: '#35251E',
-    tabBar: '#FFFCF7',
-    tabInactive: '#928B83',
-    overlay: 'rgba(53, 37, 30, 0.42)',
+    surfaceSunken: '#ECE7DE',
+    text: '#1C1917',
+    textMuted: '#57534E',
+    textFaint: '#6B655E',
+    primary: '#231F1D',
+    onPrimary: '#FAF8F4',
+    primarySoft: '#EAE4DA',
+    accent: '#A66334',
+    accentSoft: '#F2E6DC',
+    onAccent: '#FAF8F4',
+    gold: '#A66334',
+    goldSoft: '#F2E6DC',
+    border: '#DCD6CC',
+    borderStrong: '#C5BDB0',
+    danger: '#A8382B',
+    dangerSoft: '#F5E2DF',
+    success: '#3F6A47',
+    switchThumb: '#FFFFFF',
+    shadow: '#1C1917',
+    tabBar: '#FAF8F4',
+    tabInactive: '#6B655E',
+    overlay: 'rgba(24, 21, 18, 0.48)',
   },
   dark: {
     mode: 'dark',
-    bg: '#14100D',
-    bgSubtle: '#1A1411',
-    surface: '#221A15',
-    surfaceRaised: '#2B211A',
-    surfaceSunken: '#171210',
-    text: '#F5F0E8',
-    textMuted: '#BCB0A4',
-    textFaint: '#8D8983',
-    primary: '#C7A675',
-    onPrimary: '#20160F',
-    primarySoft: '#2E231B',
-    gold: '#C7A675',
-    goldSoft: '#3A2C21',
-    border: '#332720',
-    borderStrong: '#4A392E',
-    danger: '#D98276',
-    dangerSoft: '#33211D',
-    success: '#8FAE86',
+    bg: '#131110',
+    bgSubtle: '#1A1715',
+    surface: '#1E1B18',
+    surfaceRaised: '#26221E',
+    surfaceSunken: '#161311',
+    text: '#F2EFE9',
+    textMuted: '#B5AEA5',
+    textFaint: '#918A81',
+    primary: '#F2EFE9',
+    onPrimary: '#131110',
+    primarySoft: '#292420',
+    accent: '#C98A56',
+    accentSoft: '#2D2219',
+    onAccent: '#131110',
+    gold: '#C98A56',
+    goldSoft: '#2D2219',
+    border: '#2E2925',
+    borderStrong: '#443D37',
+    danger: '#E07B6E',
+    dangerSoft: '#341F1C',
+    success: '#7FA883',
+    switchThumb: '#F5F2EC',
     shadow: '#000000',
-    tabBar: '#1A1411',
-    tabInactive: '#8D8983',
-    overlay: 'rgba(0, 0, 0, 0.62)',
+    tabBar: '#1A1715',
+    tabInactive: '#918A81',
+    overlay: 'rgba(0, 0, 0, 0.68)',
   },
 };
 
 /**
- * Brand surface used for the hero cards and the brewing timer. It stays
- * espresso-dark in both themes so the app keeps one recognisable signature.
+ * Instrument dark surface used for hero readouts and the active brewing timer.
+ * Unified matte charcoal across both light and dark themes with WCAG-AA
+ * verified text tokens.
  */
 export const BrandSurface = {
-  bg: '#35251E',
-  bgDeep: '#2A1C16',
-  text: '#FFFCF7',
-  muted: 'rgba(255, 252, 247, 0.64)',
-  faint: 'rgba(255, 252, 247, 0.42)',
-  line: 'rgba(255, 252, 247, 0.12)',
-  accent: '#C7A675',
-  onAccent: '#20160F',
+  bg: '#1A1715',
+  bgDeep: '#12100E',
+  surface: '#26221E',
+  text: '#F5F2EC',
+  muted: '#B8B0A6',
+  faint: '#968E84',
+  line: 'rgba(245, 242, 236, 0.12)',
+  border: 'rgba(245, 242, 236, 0.16)',
+  accent: '#C98A56',
+  onAccent: '#131110',
 } as const;
 
-export const FontFamily = {  serif: Platform.select({ android: 'serif', ios: 'Georgia', default: 'serif' }),
+export const FontFamily = {
+  serif: Platform.select({ android: 'serif', ios: 'Georgia', default: 'serif' }),
   sans: Platform.select({ android: 'sans-serif', ios: 'System', default: 'sans-serif' }),
   sansMedium: Platform.select({
     android: 'sans-serif-medium',
@@ -136,20 +156,20 @@ export const FontFamily = {  serif: Platform.select({ android: 'serif', ios: 'Ge
 export const Typography = {
   display: {
     fontFamily: FontFamily.serif,
-    fontSize: 34,
-    lineHeight: 40,
-    letterSpacing: -0.6,
+    fontSize: 32,
+    lineHeight: 38,
+    letterSpacing: -0.5,
   } satisfies TextStyle,
   h1: {
     fontFamily: FontFamily.serif,
-    fontSize: 26,
-    lineHeight: 32,
+    fontSize: 25,
+    lineHeight: 31,
     letterSpacing: -0.3,
   } satisfies TextStyle,
   h2: {
     fontFamily: FontFamily.serif,
-    fontSize: 21,
-    lineHeight: 27,
+    fontSize: 20,
+    lineHeight: 26,
     letterSpacing: -0.2,
   } satisfies TextStyle,
   h3: {
@@ -169,31 +189,60 @@ export const Typography = {
   } satisfies TextStyle,
   small: {
     fontFamily: FontFamily.sans,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 13.5,
+    lineHeight: 19,
   } satisfies TextStyle,
   caption: {
     fontFamily: FontFamily.sans,
     fontSize: 12,
     lineHeight: 16,
   } satisfies TextStyle,
+  /** Clean sentence-case form and table field label. */
+  fieldLabel: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 12.5,
+    lineHeight: 17,
+  } satisfies TextStyle,
+  /** Compact instrument dial header (uppercase reserved strictly for small readouts). */
   label: {
     fontFamily: FontFamily.sansMedium,
     fontSize: 11,
     lineHeight: 14,
-    letterSpacing: 1.3,
+    letterSpacing: 1.05,
     textTransform: 'uppercase',
+  } satisfies TextStyle,
+  /** Tabular numeric readout variants so numbers align without layout jitter. */
+  metricHero: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 32,
+    lineHeight: 36,
+    letterSpacing: -0.6,
+    fontVariant: ['tabular-nums'],
+  } satisfies TextStyle,
+  metric: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 20,
+    lineHeight: 25,
+    letterSpacing: -0.3,
+    fontVariant: ['tabular-nums'],
+  } satisfies TextStyle,
+  metricSmall: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 14,
+    lineHeight: 20,
+    fontVariant: ['tabular-nums'],
   } satisfies TextStyle,
   mono: {
     fontFamily: FontFamily.mono,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 20,
+    fontVariant: ['tabular-nums'],
   } satisfies TextStyle,
   monoLarge: {
     fontFamily: FontFamily.mono,
-    fontSize: 64,
-    lineHeight: 70,
-    letterSpacing: -1,
+    fontSize: 60,
+    lineHeight: 66,
+    letterSpacing: -1.5,
     fontVariant: ['tabular-nums'],
   } satisfies TextStyle,
 } as const;
@@ -205,15 +254,16 @@ export const Spacing = {
   md: 12,
   lg: 16,
   xl: 20,
-  xxl: 28,
-  xxxl: 40,
+  xxl: 24,
+  xxxl: 36,
 } as const;
 
 export const Radius = {
-  sm: 10,
-  md: 14,
-  lg: 20,
-  xl: 28,
+  xs: 4,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 18,
   pill: 999,
 } as const;
 

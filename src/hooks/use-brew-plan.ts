@@ -6,7 +6,9 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { STAGE_LABELS, DEFAULT_BREW, MAX_POUR_STAGES } from '@/constants/defaults';
+import { DEFAULT_BREW, MAX_POUR_STAGES, getStageLabels, localizeStepLabel } from '@/constants/defaults';
+import { useLanguage } from '@/hooks/use-language';
+import type { Language } from '@/i18n';
 import type { BrewRecipe, PourStep } from '@/types';
 import {
   adjustStageAmount,
@@ -60,12 +62,17 @@ export interface BrewPlan extends PlanState {
 }
 
 const DEFAULT_POUR_LABEL_RE =
-  /^(?:(?:Single|Final|First|Second|Third|Fourth|Fifth|Sixth)\s+pour|Pour\s+\d+)$/i;
+  /^(?:(?:Single|Final|First|Second|Third|Fourth|Fifth|Sixth)\s+pour|Pour\s+\d+|Tuang\s+(?:tunggal|terakhir|pertama|kedua|ketiga|keempat|kelima|keenam|\d+))$/i;
 
-function syncPourLabel(currentLabel: string, index: number, count: number): string {
+function syncPourLabel(
+  currentLabel: string,
+  index: number,
+  count: number,
+  lang: Language
+): string {
   const trimmed = currentLabel.trim();
   if (!trimmed || DEFAULT_POUR_LABEL_RE.test(trimmed)) {
-    return pourLabel(index, count);
+    return pourLabel(index, count, lang);
   }
   return currentLabel;
 }
@@ -98,12 +105,13 @@ function rescalePours(pours: PourDraft[], oldRemaining: number, newRemaining: nu
   return pours.map((pour, index) => ({ ...pour, amountG: scaled[index] }));
 }
 
-function composeSteps(state: PlanState): PourStep[] {
+function composeSteps(state: PlanState, lang: Language): PourStep[] {
+  const stageLabels = getStageLabels(lang);
   const blooms = bloomWaterFor(state.doseG, state.bloomMultiplier);
   const steps: PourStep[] = [
     {
       stepOrder: 0,
-      label: STAGE_LABELS.bloom,
+      label: stageLabels.bloom,
       kind: 'bloom',
       targetWaterG: blooms,
       durationS: Math.max(1, Math.round(state.bloomDurationS)),
@@ -115,7 +123,7 @@ function composeSteps(state: PlanState): PourStep[] {
     cumulative = round1(cumulative + pour.amountG);
     steps.push({
       stepOrder: index + 1,
-      label: pour.label || `Pour ${index + 1}`,
+      label: localizeStepLabel(pour.label || `${stageLabels.pour} ${index + 1}`, 'pour', lang),
       kind: 'pour',
       targetWaterG: cumulative,
       durationS: Math.max(1, Math.round(pour.durationS)),
@@ -125,7 +133,7 @@ function composeSteps(state: PlanState): PourStep[] {
   if (state.drawdownEnabled) {
     steps.push({
       stepOrder: steps.length,
-      label: STAGE_LABELS.drawdown,
+      label: stageLabels.drawdown,
       kind: 'drawdown',
       targetWaterG: cumulative,
       durationS: Math.max(1, Math.round(state.drawdownDurationS)),
@@ -135,7 +143,7 @@ function composeSteps(state: PlanState): PourStep[] {
   return steps;
 }
 
-function initialPlan(recipe?: BrewRecipe | null): PlanState {
+function initialPlan(recipe: BrewRecipe | null | undefined, lang: Language): PlanState {
   if (!recipe) {
     const total = round1(DEFAULT_BREW.coffeeDoseG * DEFAULT_BREW.ratio);
     const blooms = bloomWaterFor(DEFAULT_BREW.coffeeDoseG, DEFAULT_BREW.bloomMultiplier);
@@ -147,7 +155,7 @@ function initialPlan(recipe?: BrewRecipe | null): PlanState {
       bloomMultiplier: DEFAULT_BREW.bloomMultiplier,
       bloomDurationS: DEFAULT_BREW.bloomDurationS,
       pours: amounts.map((amount, index) => ({
-        label: pourLabel(index, amounts.length),
+        label: pourLabel(index, amounts.length, lang),
         amountG: amount,
         durationS: 30,
       })),
@@ -164,7 +172,7 @@ function initialPlan(recipe?: BrewRecipe | null): PlanState {
     const amount = round1(step.targetWaterG - previous);
     previous = step.targetWaterG;
     return {
-      label: step.label || pourLabel(index, pours.length),
+      label: step.label ? localizeStepLabel(step.label, 'pour', lang) : pourLabel(index, pours.length, lang),
       amountG: Math.max(0, amount),
       durationS: step.durationS,
     };
@@ -183,7 +191,8 @@ function initialPlan(recipe?: BrewRecipe | null): PlanState {
 }
 
 export function useBrewPlan(recipe?: BrewRecipe | null): BrewPlan {
-  const [state, setState] = useState<PlanState>(() => initialPlan(recipe));
+  const lang = useLanguage();
+  const [state, setState] = useState<PlanState>(() => initialPlan(recipe, lang));
 
   const ratio = useMemo(
     () => (state.doseG > 0 ? roundTo(state.totalWaterG / state.doseG, 2) : 0),
@@ -313,31 +322,34 @@ export function useBrewPlan(recipe?: BrewRecipe | null): BrewPlan {
       return {
         ...previous,
         pours: pours.map((pour, index) => ({
-          label: syncPourLabel(pour.label, index, count),
+          label: syncPourLabel(pour.label, index, count, lang),
           amountG: even[index],
           durationS: pour.durationS,
         })),
       };
     });
-  }, []);
+  }, [lang]);
 
-  const removePour = useCallback((index: number) => {
-    setState((previous) => {
-      if (previous.pours.length <= 1) return previous;
-      const remaining = remainingFor(previous);
-      const pours = previous.pours.filter((_, position) => position !== index);
-      const count = pours.length;
-      const even = distributeWater(remaining, count);
-      return {
-        ...previous,
-        pours: pours.map((pour, position) => ({
-          ...pour,
-          label: syncPourLabel(pour.label, position, count),
-          amountG: even[position],
-        })),
-      };
-    });
-  }, []);
+  const removePour = useCallback(
+    (index: number) => {
+      setState((previous) => {
+        if (previous.pours.length <= 1) return previous;
+        const remaining = remainingFor(previous);
+        const pours = previous.pours.filter((_, position) => position !== index);
+        const count = pours.length;
+        const even = distributeWater(remaining, count);
+        return {
+          ...previous,
+          pours: pours.map((pour, position) => ({
+            ...pour,
+            label: syncPourLabel(pour.label, position, count, lang),
+            amountG: even[position],
+          })),
+        };
+      });
+    },
+    [lang]
+  );
 
   const setDrawdownEnabled = useCallback((enabled: boolean) => {
     setState((previous) => ({ ...previous, drawdownEnabled: enabled }));
@@ -347,9 +359,18 @@ export function useBrewPlan(recipe?: BrewRecipe | null): BrewPlan {
     setState((previous) => ({ ...previous, drawdownDurationS: Math.max(1, seconds) }));
   }, []);
 
-  const reset = useCallback(() => setState(initialPlan(recipe ?? null)), [recipe]);
+  const reset = useCallback(() => setState(initialPlan(recipe ?? null, lang)), [lang, recipe]);
 
-  const steps = useMemo(() => composeSteps(state), [state]);
+  const localizedPours = useMemo(
+    () =>
+      state.pours.map((pour) => ({
+        ...pour,
+        label: localizeStepLabel(pour.label, 'pour', lang),
+      })),
+    [lang, state.pours]
+  );
+
+  const steps = useMemo(() => composeSteps(state, lang), [lang, state]);
   const totalTimeS = useMemo(
     () => steps.reduce((total, step) => total + step.durationS, 0),
     [steps]
@@ -357,6 +378,7 @@ export function useBrewPlan(recipe?: BrewRecipe | null): BrewPlan {
 
   return {
     ...state,
+    pours: localizedPours,
     ratio,
     bloomWaterG,
     remainingWaterG,

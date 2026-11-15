@@ -1,10 +1,12 @@
 /** Key/value preferences stored in SQLite (no cloud, no accounts). */
 
 import type { ThemePreference } from '@/constants/theme';
+import type { LanguagePreference } from '@/i18n';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 export const PREFERENCE_KEYS = {
   themeMode: 'themeMode',
+  language: 'language',
   haptics: 'haptics',
   keepAwake: 'keepAwake',
   lastGrinderId: 'lastGrinderId',
@@ -12,6 +14,7 @@ export const PREFERENCE_KEYS = {
 
 export interface Preferences {
   themeMode: ThemePreference;
+  language: LanguagePreference;
   haptics: boolean;
   keepAwake: boolean;
   lastGrinderId: string | null;
@@ -19,6 +22,7 @@ export interface Preferences {
 
 export const DEFAULT_PREFERENCES: Preferences = {
   themeMode: 'system',
+  language: 'system',
   haptics: true,
   keepAwake: true,
   lastGrinderId: null,
@@ -52,8 +56,10 @@ export async function removePreference(db: SQLiteDatabase, key: string): Promise
 export async function readPreferences(db: SQLiteDatabase): Promise<Preferences> {
   const raw = await getAllPreferences(db);
   const theme = raw[PREFERENCE_KEYS.themeMode];
+  const language = raw[PREFERENCE_KEYS.language];
   return {
     themeMode: theme === 'light' || theme === 'dark' ? theme : 'system',
+    language: language === 'en' || language === 'id' ? language : 'system',
     haptics: raw[PREFERENCE_KEYS.haptics] !== 'false',
     keepAwake: raw[PREFERENCE_KEYS.keepAwake] !== 'false',
     lastGrinderId: raw[PREFERENCE_KEYS.lastGrinderId] ?? null,

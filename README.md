@@ -8,27 +8,29 @@ and remembers how the cup actually tasted. It also carries an offline brew guide
 with the reasoning behind the numbers. Everything lives in a local SQLite
 database — no account, no network, no tracking.
 
-**Current release:** [v1.1.0](https://github.com/agungkrishna-code/brewmate/releases/tag/v1.1.0)
-· [Download the APK](https://github.com/agungkrishna-code/brewmate/releases/download/v1.1.0/Brewmate-1.1.0.apk)
+**Current release:** [v1.2.0](https://github.com/agungkrishna-code/brewmate/releases/tag/v1.2.0)
+· [Download the APK](https://github.com/agungkrishna-code/brewmate/releases/download/v1.2.0/Brewmate-1.2.0.apk)
 
 ---
 
 ## What it does
 
-**Home** — a greeting, your last-used recipe, one-tap start, favourite recipes,
-recent coffees, brew stats, quick access to both grinder profiles and a card for
-the brew guide.
+**Home** — a greeting, your last-used recipe, one-tap start, a hairline metric
+strip (brews, favourites, average cup), pinned recipes, recent coffees and a link
+to the brew guide.
 
 **Brew (calculator)** — dose, ratio, total water, temperature, bloom multiplier
-and any number of pour stages. Every stage is editable and the water always adds
-up: the final stage lands exactly on the total, to 0.1 g.
+and any number of pour stages. Fields use docked −/+ steppers, the live plan
+reads back dose, water, ratio and time, and every stage is editable. The water
+always adds up: the final stage lands exactly on the total, to 0.1 g.
 
-**Brewing timer** — a full-screen brew mode with a progress ring, the current
-stage, the cumulative scale target and the instruction for that stage. Pause,
-resume, skip a stage, reset. Elapsed time is derived from wall-clock timestamps,
-so backgrounding the app or a slow JS thread never drifts the timer. The screen
-stays awake while brewing and a light haptic fires on each stage change. At the
-end you can log the brew with ratings and notes.
+**Brewing timer** — a full-screen charcoal instrument with a ticked progress
+ring, the current stage, the cumulative scale target, the instruction for that
+stage and a preview of the next pour. Pause, resume, skip a stage, reset. Elapsed
+time is derived from wall-clock timestamps, so backgrounding the app or a slow JS
+thread never drifts the timer. The screen stays awake while brewing and a light
+haptic fires on each stage change. At the end you can log the brew with ratings
+and notes.
 
 **Recipes** — create, edit, duplicate, delete, favourite. Each recipe stores
 dose, ratio, temperature, grinder, grind setting, bloom, the full pour schedule,
@@ -50,12 +52,15 @@ by side, and see your aggregate stats.
 
 **Brew guide** — eight offline articles on V60 basics, grind dial-in, water and
 ratio, taste troubleshooting, bean freshness, pour technique, TIMEMORE
-calibration and the 4:6 method. Each article is written for the one-cup workflow
-the app supports and lists its own sources.
+calibration and the 4:6 method, available in both **English** and **Indonesian**.
+Each article is written for the one-cup workflow the app supports and lists its
+own sources.
 
-**Settings** — light/dark/system theme, haptics, keep-awake, JSON export and
-restore, plus a **Learn** section that opens the guide and the two
-troubleshooting articles.
+**Settings** — System / Light / Dark appearance, System / English / Indonesia
+language selector (follows the device locale when set to System), haptics,
+keep-awake, a compact library strip (coffees, recipes, brews), JSON export and
+restore, plus a **Learn** section that opens the guide and two troubleshooting
+articles.
 
 ## Screens
 
@@ -92,7 +97,8 @@ troubleshooting articles.
   </tr>
 </table>
 
-Captured from the v1.1.0 release APK on a Pixel 9 API 37 emulator.
+Captured from the current development build on a Pixel 9 API 37 emulator, in
+light mode. The timer keeps its charcoal instrument surface in both themes.
 
 ---
 
@@ -124,8 +130,9 @@ The manufacturer reference is shown as a fact. Your own working range, stored as
 - `react-native-svg` for the timer ring
 - `expo-haptics`, `expo-keep-awake`, `expo-file-system`, `expo-sharing`,
   `expo-document-picker`
-- React Native `StyleSheet` only — no UI framework, no icon assets beyond
-  `@expo/vector-icons/Ionicons`
+- React Native `StyleSheet` only — no UI framework, no downloaded fonts
+- `lucide-react-native` for icons, wrapped once in `AppIcon` with a uniform
+  1.65 stroke — one icon set across the whole app
 
 ---
 
@@ -150,21 +157,24 @@ src/
     grinders/new.tsx         custom grinder
     journal/[id].tsx         session detail + tasting review
     journal/compare.tsx      two-brew comparison
-    settings/index.tsx       theme, haptics, backup, about
+    settings/index.tsx       theme, language, haptics, backup, about
   components/
-    common/                  text, screen, button, field, sheet, rating, …
+    common/                  text, icon, screen, button, field, sheet, section,
+                             stat, empty-state, rating, brand-card
     brewing/                 plan inputs, stage editor, stage list, timer ring
     recipes/  grinder/  journal/  beans/
-  constants/                 theme tokens, defaults, starter recipes, guide content
+  constants/                 theme tokens, defaults, starter recipes, guide content (en + id)
   contexts/                  settings (preferences) and the in-memory brew draft
   database/                  schema, migrations, seeds, bootstrap
-  hooks/                     use-brew-plan, use-brewing-timer, use-database, use-theme
+  hooks/                     use-brew-plan, use-brewing-timer, use-database,
+                             use-language, use-theme
+  i18n/                      typed English and Indonesian dictionaries + locale detection
   services/                  calculator, timeline, grinders, beans, recipes,
                              journal, preferences, backup
   types/                     grinder, coffee, recipe, brewing
   utils/                     calculations, grinder maths, formatting, validation
 tests/logic.test.ts          water maths, timeline, grinder clicks, validation,
-                             guide integrity
+                             guide integrity, i18n parity
 ```
 
 ---
@@ -221,7 +231,7 @@ Android. Bagian bahasa Inggris di bawah tetap berlaku sebagai referensi.
 |---|---|---|
 | Node.js | LTS (20 atau 22) | `node -v` |
 | npm | ikut Node | `npm -v` |
-| JDK | 17 atau 21 | `java -version` |
+| JDK | 17 atau lebih baru (diuji dengan JDK 25) | `java -version` |
 | Android Studio | versi stabil terbaru | — |
 | Android SDK Platform | 37 (compileSdk project) | SDK Manager |
 | Emulator (AVD) | contoh `Pixel_9_API_37` | Device Manager |
@@ -234,7 +244,8 @@ setx ANDROID_SDK_ROOT "$env:LOCALAPPDATA\Android\Sdk"
 ```
 
 Tutup dan buka lagi terminal setelah `setx`. Pastikan `JAVA_HOME` juga menunjuk
-ke JDK 17/21, karena Gradle menolak JDK yang lebih lama.
+ke JDK 17 atau lebih baru: proyek ini memakai Gradle 9.4.1 + AGP 9, dan build
+Android sudah diverifikasi berjalan di JDK 25.
 
 ### 2. Install dependency
 
@@ -307,10 +318,12 @@ npm run lint           # ESLint
 python scripts\verify-schema.py      # skema + semua query service di SQLite asli
 ```
 
-### 6. Penting: nama folder mengandung karakter "–"
+### 6. Penting: path folder non-ASCII
 
-Folder project ini bernama `Brewmate – V60 Coffee Companion` dengan **en dash**.
-Itu dua masalah sekaligus:
+Checkout ini berada di `C:\Users\dewag\OneDrive\Desktop\brewmate`, jadi path-nya
+ASCII dan build native langsung berjalan. Kalau project dipindah ke folder
+dengan karakter non-ASCII (misalnya nama lama
+`Brewmate – V60 Coffee Companion` dengan **en dash**), ada dua masalah sekaligus:
 
 1. Plugin Gradle-nya menolak melakukan konfigurasi pada path non-ASCII. Project
    ini sudah menyiasatinya lewat `plugins/with-gradle-path-override.js`
@@ -323,7 +336,7 @@ Itu dua masalah sekaligus:
    'C:/Users/.../Brewmate <96> V60 Coffee Companion/.../WorkletsPCH.h'
    ```
 
-Selama foldernya masih bernama begitu, `npx expo run:android` **akan gagal**.
+Selama path-nya masih non-ASCII, `npx expo run:android` **akan gagal**.
 Ada dua jalan keluar:
 
 - **Praktis:** jalankan `scripts/build-android.ps1` (lihat bawah). Script ini
@@ -372,8 +385,10 @@ mengunggah ke Play Store.
 | Emulator `offline` terus | snapshot rusak | `-no-snapshot-load`, atau **Wipe Data** di Device Manager |
 | Layar app stuck di splash | app tidak bisa menghubungi Metro | jalankan `adb reverse tcp:8081 tcp:8081`, pastikan Metro hidup |
 | `Unable to load script` | APK debug dibuka tanpa Metro | jalankan `npx expo start` atau pakai APK release |
-| Build gagal di `WorkletsPCH.h` | path en dash | pakai `scripts\build-android.ps1` (poin 6) |
+| Build gagal di `WorkletsPCH.h` | path non-ASCII | pakai `scripts\build-android.ps1` (poin 6) |
 | `ninja: error: manifest ... too long` | ninja bawaan CMake 3.22.1 | sudah ditangani otomatis oleh script build |
+| Metro 500, `unable to resolve module` | cache Metro dibuat sebelum dependency baru di-install | hentikan Metro, lalu `npx expo start --clear` |
+| `INSTALL_FAILED_VERSION_DOWNGRADE` | `versionCode` APK lokal lebih rendah dari app terpasang | jalankan `npx expo prebuild --platform android`, atau uninstall app lama |
 | Perubahan kode tidak muncul | Metro dalam mode CI | jalankan `npx expo start` tanpa `CI=1` |
 
 ### 9. Data hilang saat uninstall
@@ -440,27 +455,29 @@ cd android
 
 Two Windows-specific issues are handled by `scripts/build-android.ps1`:
 
-1. **Non-ASCII path.** Expo's Android plugin refuses to configure a project whose
-   path contains non-ASCII characters, and this folder name contains an en dash
-   (`–`). `plugins/with-gradle-path-override.js` writes
+1. **Non-ASCII path.** If the project sits in a folder whose name contains
+   non-ASCII characters (the old checkout used an en dash), Expo's Android plugin
+   refuses to configure it. `plugins/with-gradle-path-override.js` writes
    `android.overridePathCheck=true` into `android/gradle.properties` on every
    `expo prebuild`, which satisfies the AGP check. That is not enough on its own:
    clang under the NDK still cannot open such paths, so the script mirrors the
-   project to `%TEMP%\brewmate-native-build` and builds there.
+   project to `%TEMP%\brewmate-native-build` and builds there. The current
+   checkout lives in an ASCII path (`...\Desktop\brewmate`) and builds directly.
 
 2. **Old ninja.** The ninja bundled with the SDK's CMake 3.22.1 hard-fails when an
    object path exceeds 260 characters, and React Native's generated codegen paths
    are around 320. The script detects a ninja older than 1.11, downloads a current
    one, prepares a private copy of CMake and points `android/local.properties` at
-   it (`cmake.dir`). Renaming this folder to something ASCII-only removes the need
-   for step 1 but not for step 2.
+   it (`cmake.dir`). Using an ASCII-only path removes the need for step 1 but not
+   for step 2.
 
 Notes:
 
 - `android/` and `ios/` are generated by `expo prebuild` (Continuous Native
   Generation). Do not hand-edit them; change `app.json` instead.
 - Set `ANDROID_HOME` (e.g. `%LOCALAPPDATA%\Android\Sdk`) and make sure
-  `JAVA_HOME` points at a JDK that Gradle accepts (17/21 recommended).
+  `JAVA_HOME` points at a JDK that Gradle accepts (17 or newer; JDK 25 is what
+  this checkout was built with).
 - Release signing is not configured. For a Play Store build you need a keystore
   and a release `build.gradle`; debug builds are self-signed and fine for
   sideloading.
@@ -483,15 +500,29 @@ Notes:
 
 ## Design notes
 
-- Palette: espresso `#35251E`, coffee `#604637`, cream `#F5F0E8`, warm white
-  `#FFFCF7`, muted gold `#C7A675`, soft grey `#8D8983`.
-- A single token file (`constants/theme.ts`) defines both themes; screens never
-  hard-code a colour. The hero cards and the timer use a fixed espresso "brand
-  surface" so the app keeps one signature in light and dark mode.
-- Type: system serif for headings, system sans for UI, monospace for timings —
-  no downloaded font, so first launch stays instant and offline.
-- Components are small and focused; screens compose them. No screen owns SQL —
-  all queries live in `services/`.
+- One system, two moods. Light is warm stone paper (`#F4F1EB` page, `#FAF8F4`
+  surface); dark is matte charcoal (`#131110` page, `#1E1B18` surface). A single
+  muted copper-amber accent (`#A66334` light, `#C98A56` dark) is reserved for
+  primary actions and active states.
+- The hero cards and the running timer sit on a fixed charcoal "instrument"
+  surface (`#1A1715`, deep `#12100E`) in both themes, so the app keeps one
+  signature whether the room is bright or dark.
+- Structure over decoration: hairline borders, 4–14 px radii, no gradients and
+  no drop shadows. Spacing comes from one scale so screens share the same
+  rhythm.
+- Type: system serif for editorial headings, system sans for UI, and tabular
+  numerals for every dose, ratio, time, temperature and metric so figures never
+  jitter. No downloaded fonts, so first launch stays instant and offline.
+- Icons: one library only, `lucide-react-native`, wrapped in `AppIcon` at a
+  uniform 1.65 stroke. No mixed outline/filled sets and no emoji.
+- Components: `AppText` variants (including `metricHero`, `metric`,
+  `metricSmall` and `mono`), `Button`/`IconButton`, a docked-stepper
+  `NumberField`, `MetricStrip`, compact `EmptyState` with `LoadingState` and
+  `ErrorState`, and a keyboard-aware `BottomSheet`. Screens compose them; no
+  screen owns SQL — all queries live in `services/`.
+- Ergonomics and contrast: 44–48 dp touch targets, WCAG-AA faint-text tokens,
+  and scroll content that measures the fixed footer so the primary action never
+  covers the last row.
 
 ---
 

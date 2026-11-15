@@ -1,14 +1,17 @@
 import { IconButton } from '@/components/common/button';
 import { Chip, ChipRow } from '@/components/common/chip';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, ErrorState, LoadingState } from '@/components/common/empty-state';
+import { AppIcon } from '@/components/common/icon';
 import { Screen } from '@/components/common/screen';
 import { SectionHeader } from '@/components/common/section';
 import { OptionSheet } from '@/components/common/sheet';
-import { StatTile } from '@/components/common/stat';
+import { MetricStrip } from '@/components/common/stat';
 import { AppText } from '@/components/common/text';
 import { SessionCard } from '@/components/journal/session-card';
+import { localizeProcessMethod, localizeRoastLevel } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useFocusedQuery } from '@/hooks/use-database';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { listBeans } from '@/services/beans';
 import { listGrinders } from '@/services/grinders';
@@ -16,16 +19,17 @@ import { getBrewStats, listSessions } from '@/services/journal';
 import { formatDate, formatRating } from '@/utils/formatting';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 export default function JournalScreen() {
   const theme = useTheme();
+  const { lang, t } = useTranslation();
   const [grinderFilter, setGrinderFilter] = useState<string | null>(null);
   const [beanFilter, setBeanFilter] = useState<string | null>(null);
   const [grinderSheet, setGrinderSheet] = useState(false);
   const [beanSheet, setBeanSheet] = useState(false);
 
-  const { data } = useFocusedQuery(async (db) => {
+  const { data, loading, error, reload } = useFocusedQuery(async (db) => {
     const [sessions, stats, grinders, beans] = await Promise.all([
       listSessions(db, {}),
       getBrewStats(db),
@@ -52,132 +56,142 @@ export default function JournalScreen() {
 
   const activeGrinder = grinders.find((grinder) => grinder.id === grinderFilter);
   const activeBean = beans.find((bean) => bean.id === beanFilter);
-
   const hasFilters = Boolean(grinderFilter || beanFilter);
 
   return (
     <Screen>
       <View style={styles.headerRow}>
         <View style={styles.flex}>
-          <AppText variant="display">Journal</AppText>
+          <AppText variant="display">{t.journal.title}</AppText>
           <AppText variant="small" tone="muted" style={styles.subtitle}>
             {stats?.lastBrewedAt
-              ? `Last brewed ${formatDate(stats.lastBrewedAt)}`
-              : 'Every cup, remembered.'}
+              ? t.journal.lastBrewed(formatDate(stats.lastBrewedAt, lang))
+              : t.journal.emptySubtitle}
           </AppText>
         </View>
         <IconButton
-          icon="git-compare-outline"
-          label="Compare two brews"
+          icon="compare"
+          label={t.journal.compareA11y}
           onPress={() => router.push('/journal/compare')}
         />
       </View>
 
-      <View style={styles.statsRow}>
-        <StatTile value={String(stats?.sessionCount ?? 0)} label="Brews" />
-        <StatTile
-          value={stats?.averageRating != null ? formatRating(stats.averageRating) : '–'}
-          label="Average cup"
-        />
-        <StatTile
-          value={stats?.favouriteBean ? String(stats.favouriteBean.count) : '–'}
-          label={stats?.favouriteBean ? stats.favouriteBean.name : 'Top coffee'}
-        />
-      </View>
+      {error && !data ? (
+        <View style={styles.section}>
+          <ErrorState message={error} onRetry={reload} />
+        </View>
+      ) : loading && !data ? (
+        <LoadingState label={t.journal.loading} />
+      ) : (
+        <>
+          <MetricStrip
+            style={styles.statsStrip}
+            items={[
+              { value: String(stats?.sessionCount ?? 0), label: t.journal.brews },
+              {
+                value: stats?.averageRating != null ? formatRating(stats.averageRating) : '–',
+                label: t.journal.averageCup,
+              },
+              {
+                value: stats?.favouriteBean ? String(stats.favouriteBean.count) : '–',
+                label: stats?.favouriteBean ? stats.favouriteBean.name : t.journal.topCoffee,
+              },
+            ]}
+          />
 
-      <View style={styles.filters}>
-        <ChipRow>
-          <Chip
-            label={activeGrinder ? activeGrinder.name : 'All grinders'}
-            icon="disc-outline"
-            selected={Boolean(grinderFilter)}
-            onPress={() => setGrinderSheet(true)}
-          />
-          <Chip
-            label={activeBean ? activeBean.name : 'All coffees'}
-            icon="cafe-outline"
-            selected={Boolean(beanFilter)}
-            onPress={() => setBeanSheet(true)}
-          />
-          {hasFilters ? (
-            <Chip
-              label="Clear"
-              icon="close"
-              onPress={() => {
-                setGrinderFilter(null);
-                setBeanFilter(null);
+          <View style={styles.filters}>
+            <ChipRow>
+              <Chip
+                label={activeGrinder ? activeGrinder.name : t.journal.allGrinders}
+                icon="disc"
+                selected={Boolean(grinderFilter)}
+                onPress={() => setGrinderSheet(true)}
+              />
+              <Chip
+                label={activeBean ? activeBean.name : t.journal.allCoffees}
+                icon="coffee"
+                selected={Boolean(beanFilter)}
+                onPress={() => setBeanSheet(true)}
+              />
+              {hasFilters ? (
+                <Chip
+                  label={t.common.clear}
+                  icon="close"
+                  onPress={() => {
+                    setGrinderFilter(null);
+                    setBeanFilter(null);
+                  }}
+                />
+              ) : null}
+            </ChipRow>
+          </View>
+
+          <View style={styles.listHeader}>
+            <SectionHeader
+              title={hasFilters ? t.journal.filteredBrews : t.journal.brewingHistory}
+              subtitle={t.journal.sessionCount(filtered.length)}
+            />
+          </View>
+
+          {filtered.length > 0 ? (
+            <View style={styles.list}>
+              {filtered.map((session) => (
+                <SessionCard
+                  key={session.id}
+                  session={session}
+                  onPress={() => router.push(`/journal/${session.id}`)}
+                />
+              ))}
+            </View>
+          ) : (
+            <EmptyState
+              icon="notebook-pen"
+              title={hasFilters ? t.journal.noMatchTitle : t.journal.emptyTitle}
+              description={
+                hasFilters ? t.journal.noMatchDesc : t.journal.emptyDesc
+              }
+              actionLabel={hasFilters ? t.journal.clearFilters : t.journal.startBrewing}
+              onAction={() => {
+                if (hasFilters) {
+                  setGrinderFilter(null);
+                  setBeanFilter(null);
+                } else {
+                  router.push('/brew');
+                }
               }}
             />
-          ) : null}
-        </ChipRow>
-      </View>
-
-      <View style={styles.listHeader}>
-        <SectionHeader
-          title={hasFilters ? 'Filtered brews' : 'Brewing history'}
-          subtitle={`${filtered.length} ${filtered.length === 1 ? 'session' : 'sessions'}`}
-        />
-      </View>
-
-      {filtered.length > 0 ? (
-        <View style={styles.list}>
-          {filtered.map((session) => (
-            <SessionCard
-              key={session.id}
-              session={session}
-              onPress={() => router.push(`/journal/${session.id}`)}
-            />
-          ))}
-        </View>
-      ) : (
-        <EmptyState
-          icon="journal-outline"
-          title={hasFilters ? 'No brews match' : 'Your journal is empty'}
-          description={
-            hasFilters
-              ? 'Try clearing the filters to see the rest of your history.'
-              : 'Finish a brew and save it to record dose, grind, timing and taste.'
-          }
-          actionLabel={hasFilters ? 'Clear filters' : 'Start brewing'}
-          onAction={() => {
-            if (hasFilters) {
-              setGrinderFilter(null);
-              setBeanFilter(null);
-            } else {
-              router.push('/brew');
-            }
-          }}
-        />
+          )}
+        </>
       )}
 
-      <View style={styles.section}>
-        <SectionHeader
-          title="Reading your cup"
-          actionLabel="Guide"
-          onAction={() => router.push('/guide/taste-troubleshooting')}
-        />
-        <View style={[styles.tipCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <TipRow
-            label="Sour and thin"
-            text="Usually under-extracted. Grind finer next time and keep the pour steady."
-          />
-          <TipRow
-            label="Bitter and drying"
-            text="Usually over-extracted. Grind coarser, or pour lower and gentler."
-          />
-          <TipRow
-            label="Weak but balanced"
-            text="That is strength, not extraction. Tighten the ratio before touching the grind."
-          />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t.journal.guideA11y}
+        onPress={() => router.push('/guide/taste-troubleshooting')}
+        style={({ pressed }) => [
+          styles.guideLink,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            opacity: pressed ? 0.85 : 1,
+          },
+        ]}>
+        <AppIcon name="book-open" size={17} color={theme.accent} />
+        <View style={styles.flex}>
+          <AppText variant="bodyStrong">{t.journal.guideTitle}</AppText>
+          <AppText variant="caption" tone="muted">
+            {t.journal.guideSub}
+          </AppText>
         </View>
-      </View>
+        <AppIcon name="chevron-right" size={16} color={theme.textFaint} />
+      </Pressable>
 
       <OptionSheet
         visible={grinderSheet}
         onClose={() => setGrinderSheet(false)}
-        title="Filter by grinder"
+        title={t.journal.filterByGrinder}
         options={[
-          { label: 'All grinders', value: 'all' },
+          { label: t.journal.allGrinders, value: 'all' },
           ...grinders.map((grinder) => ({ label: grinder.name, value: grinder.id })),
         ]}
         selected={grinderFilter ?? 'all'}
@@ -186,13 +200,16 @@ export default function JournalScreen() {
       <OptionSheet
         visible={beanSheet}
         onClose={() => setBeanSheet(false)}
-        title="Filter by coffee"
+        title={t.journal.filterByCoffee}
         options={[
-          { label: 'All coffees', value: 'all' },
+          { label: t.journal.allCoffees, value: 'all' },
           ...beans.map((bean) => ({
             label: bean.name,
             value: bean.id,
-            detail: [bean.process, bean.roastLevel].join(' · '),
+            detail: [
+              localizeProcessMethod(bean.process, lang),
+              localizeRoastLevel(bean.roastLevel, lang),
+            ].join(' · '),
           })),
         ]}
         selected={beanFilter ?? 'all'}
@@ -210,28 +227,19 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
   },
   subtitle: { marginTop: Spacing.xs },
-  statsRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xl },
+  statsStrip: { marginTop: Spacing.xl },
   filters: { marginTop: Spacing.lg },
   listHeader: { marginTop: Spacing.xl },
   list: { gap: Spacing.sm },
   section: { marginTop: Spacing.xxl },
-  tipCard: {
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: Spacing.md,
+  guideLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.md,
+    marginTop: Spacing.xxl,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
   },
-  tipRow: { gap: 2 },
   flex: { flex: 1 },
 });
-
-function TipRow({ label, text }: { label: string; text: string }) {
-  return (
-    <View style={styles.tipRow}>
-      <AppText variant="caption" tone="faint">
-        {label}
-      </AppText>
-      <AppText variant="small">{text}</AppText>
-    </View>
-  );
-}

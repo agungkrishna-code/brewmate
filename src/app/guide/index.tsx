@@ -1,62 +1,66 @@
-import { Ionicons, type IconName } from '@/components/common/icon';
+import { AppIcon, type IconName } from '@/components/common/icon';
 import { StackScreen } from '@/components/common/screen';
-import { SectionHeader } from '@/components/common/section';
+import { Badge, SectionHeader } from '@/components/common/section';
 import { AppText } from '@/components/common/text';
-import { GUIDE_ARTICLES } from '@/constants/guide';
+import { getGuideArticles } from '@/constants/guide';
 import { Radius, Spacing } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 const ARTICLE_ICONS: Record<string, IconName> = {
-  'v60-basics': 'cafe-outline',
-  'dial-in-grind': 'options-outline',
-  'water-and-ratio': 'water-outline',
-  'taste-troubleshooting': 'alert-circle-outline',
-  'beans-and-freshness': 'leaf-outline',
-  'pour-technique': 'water-outline',
-  'grinder-calibration': 'disc-outline',
-  'four-six-method': 'grid-outline',
+  'v60-basics': 'coffee',
+  'dial-in-grind': 'sliders',
+  'water-and-ratio': 'droplets',
+  'taste-troubleshooting': 'alert-circle',
+  'beans-and-freshness': 'compass',
+  'pour-technique': 'droplets',
+  'grinder-calibration': 'disc',
+  'four-six-method': 'layers',
 };
 
 export default function GuideScreen() {
   const theme = useTheme();
+  const { lang, t } = useTranslation();
+  const articles = getGuideArticles(lang);
 
   return (
     <StackScreen
-      title="Brew guide"
-      subtitle="Short, sourced notes for better V60"
-      right={
-        <View style={[styles.badge, { backgroundColor: theme.primarySoft }]}>
-          <AppText variant="caption" color={theme.primary}>
-            Offline
-          </AppText>
-        </View>
-      }>
+      title={t.guide.title}
+      subtitle={t.guide.subtitle}
+      right={<Badge label={t.guide.offlineBadge} />}>
       <AppText variant="small" tone="muted">
-        These notes assume the one-cup V60 workflow the app is built around. The numbers are
-        starting points. Taste is the final judge.
+        {t.guide.intro}
       </AppText>
 
-      <View style={[styles.quickCard, { backgroundColor: theme.goldSoft }]}>
-        <AppText variant="label" tone="faint">
-          One cup reference
+      <View
+        style={[
+          styles.quickCard,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}>
+        <AppText variant="label" tone="accent">
+          {t.guide.oneCupRef}
         </AppText>
-        <View style={styles.quickRow}>
-          <QuickFact value="15 g" label="Coffee" />
-          <QuickFact value="250 g" label="Water" />
-          <QuickFact value="1:16.7" label="Ratio" />
-          <QuickFact value="3:00" label="Target" />
+        <View style={[styles.quickRow, { borderColor: theme.border }]}>
+          <QuickFact value="15 g" label={t.guide.coffee} />
+          <QuickFact value="250 g" label={t.guide.water} />
+          <QuickFact value="1:16.7" label={t.guide.ratio} />
+          <QuickFact value="3:00" label={t.guide.target} />
         </View>
         <AppText variant="caption" tone="muted">
-          Medium-fine grind, 92 to 96°C water, bloom at 50 g for 45 seconds.
+          {t.guide.quickSummary}
         </AppText>
       </View>
 
       <View style={styles.section}>
-        <SectionHeader title="All guides" subtitle={`${GUIDE_ARTICLES.length} short reads`} />
-        <View style={[styles.list, { borderColor: theme.border }]}>
-          {GUIDE_ARTICLES.map((article, index) => (
+        <SectionHeader title={t.guide.allGuides} subtitle={t.guide.articlesCount(articles.length)} />
+        <View
+          style={[
+            styles.list,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}>
+          {articles.map((article, index) => (
             <Pressable
               key={article.slug}
               accessibilityRole="button"
@@ -67,14 +71,14 @@ export default function GuideScreen() {
                 {
                   borderTopColor: theme.border,
                   borderTopWidth: index === 0 ? 0 : StyleSheet.hairlineWidth,
-                  opacity: pressed ? 0.7 : 1,
+                  opacity: pressed ? 0.72 : 1,
                 },
               ]}>
-              <View style={[styles.iconWrap, { backgroundColor: theme.primarySoft }]}>
-                <Ionicons
-                  name={ARTICLE_ICONS[article.slug] ?? 'book-outline'}
-                  size={18}
-                  color={theme.primary}
+              <View style={[styles.iconWrap, { backgroundColor: theme.surfaceSunken }]}>
+                <AppIcon
+                  name={ARTICLE_ICONS[article.slug] ?? 'book-open'}
+                  size={17}
+                  color={theme.accent}
                 />
               </View>
               <View style={styles.flex}>
@@ -83,23 +87,19 @@ export default function GuideScreen() {
                   {article.summary}
                 </AppText>
               </View>
-              <Ionicons name="chevron-forward" size={15} color={theme.textFaint} />
+              <AppIcon name="chevron-right" size={16} color={theme.textFaint} />
             </Pressable>
           ))}
         </View>
       </View>
 
       <View style={styles.section}>
-        <SectionHeader title="Where this comes from" />
+        <SectionHeader title={t.guide.whereItComesFrom} />
         <AppText variant="small" tone="muted">
-          The guide draws on James Hoffmann’s one-cup V60 method, the Specialty Coffee
-          Association’s brewing and water references, TIMEMORE’s published grinder
-          specifications, and practical dial-in notes from specialty roasters and brewing
-          guides. Each article lists its own sources.
+          {t.guide.sourcesSummary}
         </AppText>
         <AppText variant="caption" tone="faint" style={styles.footnote}>
-          Brewing is personal. Use these notes to make your next cup easier to repeat, not to
-          chase someone else’s numbers.
+          {t.guide.footnote}
         </AppText>
       </View>
     </StackScreen>
@@ -109,7 +109,9 @@ export default function GuideScreen() {
 function QuickFact({ value, label }: { value: string; label: string }) {
   return (
     <View style={styles.quickFact}>
-      <AppText variant="bodyStrong">{value}</AppText>
+      <AppText variant="metricSmall" tabular>
+        {value}
+      </AppText>
       <AppText variant="caption" tone="muted">
         {label}
       </AppText>
@@ -118,17 +120,23 @@ function QuickFact({ value, label }: { value: string; label: string }) {
 }
 
 const styles = StyleSheet.create({
-  badge: { paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.pill },
   quickCard: {
     marginTop: Spacing.xl,
     borderRadius: Radius.md,
+    borderWidth: 1,
     padding: Spacing.md,
     gap: Spacing.sm,
   },
-  quickRow: { flexDirection: 'row', gap: Spacing.sm },
-  quickFact: { flex: 1, gap: 1 },
+  quickRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  quickFact: { flex: 1, gap: 2 },
   section: { marginTop: Spacing.xxl },
-  list: { borderWidth: StyleSheet.hairlineWidth, borderRadius: Radius.md, overflow: 'hidden' },
+  list: { borderWidth: 1, borderRadius: Radius.md, overflow: 'hidden' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

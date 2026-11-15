@@ -1,3 +1,6 @@
+import type { Language } from '@/i18n';
+import { GUIDE_ARTICLES_ID } from './guide-id';
+
 /**
  * Offline brew guide.
  *
@@ -916,6 +919,10 @@ export const GUIDE_ARTICLES: GuideArticle[] = [
   },
 ];
 
-export function getGuideArticle(slug: string): GuideArticle | undefined {
-  return GUIDE_ARTICLES.find((article) => article.slug === slug);
+export function getGuideArticles(lang: Language): GuideArticle[] {
+  return lang === 'id' ? GUIDE_ARTICLES_ID : GUIDE_ARTICLES;
+}
+
+export function getGuideArticle(slug: string, lang: Language = 'en'): GuideArticle | undefined {
+  return getGuideArticles(lang).find((article) => article.slug === slug);
 }

@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,8 +12,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Radius, Spacing } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
-import { Ionicons } from './icon';
+import { AppIcon } from './icon';
 import { AppText } from './text';
 
 interface BottomSheetProps {
@@ -35,6 +38,7 @@ export function BottomSheet({
   style,
 }: BottomSheetProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   return (
@@ -44,10 +48,15 @@ export function BottomSheet({
       animationType="fade"
       statusBarTranslucent
       onRequestClose={onClose}>
-      <View style={styles.root}>
+      <KeyboardAvoidingView
+        // Android already resizes the window (`softwareKeyboardLayoutMode:
+        // "resize"`); adding "height" here resized twice and pushed the footer
+        // buttons out of the sheet when the keyboard opened.
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.root}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={t.common.close}
           style={[styles.backdrop, { backgroundColor: theme.overlay }]}
           onPress={onClose}
         />
@@ -62,7 +71,7 @@ export function BottomSheet({
             style,
           ]}>
           <View style={[styles.handle, { backgroundColor: theme.borderStrong }]} />
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: theme.border }]}>
             <View style={styles.headerText}>
               <AppText variant="h2">{title}</AppText>
               {subtitle ? (
@@ -73,14 +82,18 @@ export function BottomSheet({
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close"
-              hitSlop={8}
+              accessibilityLabel={t.common.close}
+              hitSlop={4}
               onPress={onClose}
               style={({ pressed }) => [
                 styles.close,
-                { backgroundColor: theme.surfaceSunken, opacity: pressed ? 0.6 : 1 },
+                {
+                  backgroundColor: theme.surfaceSunken,
+                  borderColor: theme.border,
+                  opacity: pressed ? 0.65 : 1,
+                },
               ]}>
-              <Ionicons name="close" size={18} color={theme.textMuted} />
+              <AppIcon name="close" size={18} color={theme.textMuted} />
             </Pressable>
           </View>
           <ScrollView
@@ -92,7 +105,7 @@ export function BottomSheet({
           </ScrollView>
           {footer ? <View style={styles.footer}>{footer}</View> : null}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -120,9 +133,10 @@ export function OptionSheet<T extends string>({
 
   return (
     <BottomSheet visible={visible} onClose={onClose} title={title} subtitle={subtitle}>
-      <View style={{ gap: Spacing.xs }}>
-        {options.map((option) => {
+      <View style={[styles.optionList, { borderColor: theme.border }]}>
+        {options.map((option, index) => {
           const isSelected = option.value === selected;
+          const isLast = index === options.length - 1;
           return (
             <Pressable
               key={option.value}
@@ -134,10 +148,10 @@ export function OptionSheet<T extends string>({
               }}
               style={({ pressed }) => [
                 styles.option,
+                !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
                 {
-                  backgroundColor: isSelected ? theme.primarySoft : 'transparent',
-                  borderColor: isSelected ? theme.borderStrong : 'transparent',
-                  opacity: pressed ? 0.7 : 1,
+                  backgroundColor: isSelected ? theme.accentSoft : 'transparent',
+                  opacity: pressed ? 0.72 : 1,
                 },
               ]}>
               <View style={styles.optionText}>
@@ -149,7 +163,7 @@ export function OptionSheet<T extends string>({
                 ) : null}
               </View>
               {isSelected ? (
-                <Ionicons name="checkmark-circle" size={20} color={theme.gold} />
+                <AppIcon name="check" size={18} color={theme.accent} />
               ) : null}
             </Pressable>
           );
@@ -163,46 +177,53 @@ const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   sheet: {
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    borderWidth: 1,
     maxHeight: '86%',
     paddingTop: Spacing.sm,
   },
   handle: {
-    width: 36,
+    width: 34,
     height: 4,
     borderRadius: 2,
     alignSelf: 'center',
-    opacity: 0.6,
+    opacity: 0.7,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     gap: Spacing.md,
   },
   headerText: { flex: 1, gap: 2 },
   subtitle: { marginTop: 2 },
   close: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.pill,
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   body: { flexGrow: 0 },
   bodyContent: { padding: Spacing.lg },
   footer: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, gap: Spacing.sm },
+  optionList: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 52,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
-    borderRadius: Radius.md,
-    borderWidth: 1,
     gap: Spacing.md,
   },
-  optionText: { flex: 1, gap: 1 },
+  optionText: { flex: 1, gap: 2 },
 });

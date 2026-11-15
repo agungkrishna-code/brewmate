@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { RATIO_PRESETS, TEMPERATURE_PRESETS } from '@/constants/defaults';
 import { Spacing } from '@/constants/theme';
 import type { BrewPlan } from '@/hooks/use-brew-plan';
+import { useTranslation } from '@/hooks/use-language';
 import { Chip, ChipRow } from '../common/chip';
 import { NumberField } from '../common/field';
 
@@ -11,11 +12,13 @@ interface PlanInputsProps {
 }
 
 export function PlanInputs({ plan, errors }: PlanInputsProps) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.root}>
       <View style={styles.row}>
         <NumberField
-          label="Coffee dose"
+          label={t.planInputs.coffeeDose}
           value={plan.doseG}
           onChange={(value) => {
             if (value != null) plan.setDose(value);
@@ -29,16 +32,17 @@ export function PlanInputs({ plan, errors }: PlanInputsProps) {
           style={styles.flex}
         />
         <NumberField
-          label="Ratio"
+          label={t.planInputs.ratio}
           value={plan.ratio}
           onChange={(value) => {
             if (value != null) plan.setRatio(value);
           }}
-          prefix="1 :"
+          prefix="1:"
           step={0.5}
           decimals={2}
           min={5}
           max={30}
+          stepper
           error={errors?.ratio}
           style={styles.flex}
         />
@@ -57,7 +61,7 @@ export function PlanInputs({ plan, errors }: PlanInputsProps) {
 
       <View style={styles.row}>
         <NumberField
-          label="Total water"
+          label={t.planInputs.totalWater}
           value={plan.totalWaterG}
           onChange={(value) => {
             if (value != null) plan.setTotalWater(value);
@@ -70,15 +74,17 @@ export function PlanInputs({ plan, errors }: PlanInputsProps) {
           style={styles.flex}
         />
         <NumberField
-          label="Water temp"
+          label={t.planInputs.waterTemp}
           value={plan.tempC}
           onChange={(value) => {
             if (value != null) plan.setTemp(value);
           }}
           suffix="°C"
           step={1}
+          decimals={0}
           min={60}
           max={100}
+          stepper
           error={errors?.waterTempC}
           style={styles.flex}
         />

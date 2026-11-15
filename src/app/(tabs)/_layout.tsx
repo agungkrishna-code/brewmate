@@ -1,12 +1,14 @@
+import { AppIcon } from '@/components/common/icon';
 import { FontFamily } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { Tabs } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@/components/common/icon';
 
 export default function TabLayout() {
   const theme = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   return (
@@ -14,32 +16,33 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: theme.bg },
-        tabBarActiveTintColor: theme.primary,
+        tabBarActiveTintColor: theme.accent,
         tabBarInactiveTintColor: theme.tabInactive,
         tabBarStyle: {
           backgroundColor: theme.tabBar,
           borderTopColor: theme.border,
           borderTopWidth: StyleSheet.hairlineWidth,
-          height: 58 + insets.bottom,
+          height: 60 + insets.bottom,
           paddingTop: 6,
-          paddingBottom: Math.max(insets.bottom, 6),
+          paddingBottom: Math.max(insets.bottom, 8),
           elevation: 0,
         },
         tabBarLabelStyle: {
           fontFamily: FontFamily.sansMedium,
-          fontSize: 10.5,
-          letterSpacing: 0.2,
+          fontSize: 11,
+          letterSpacing: 0.15,
         },
         tabBarItemStyle: { paddingTop: 2 },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: t.tabs.home,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'home' : 'home-outline'}
-              size={21}
+            <AppIcon
+              name="home"
+              size={20}
+              strokeWidth={focused ? 1.9 : 1.6}
               color={typeof color === 'string' ? color : theme.text}
             />
           ),
@@ -48,11 +51,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="brew"
         options={{
-          title: 'Brew',
+          title: t.tabs.brew,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'timer' : 'timer-outline'}
-              size={22}
+            <AppIcon
+              name="timer"
+              size={20}
+              strokeWidth={focused ? 1.9 : 1.6}
               color={typeof color === 'string' ? color : theme.text}
             />
           ),
@@ -61,11 +65,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="recipes"
         options={{
-          title: 'Recipes',
+          title: t.tabs.recipes,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'book' : 'book-outline'}
-              size={21}
+            <AppIcon
+              name="book-open"
+              size={20}
+              strokeWidth={focused ? 1.9 : 1.6}
               color={typeof color === 'string' ? color : theme.text}
             />
           ),
@@ -74,11 +79,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="grinder"
         options={{
-          title: 'Grinder',
+          title: t.tabs.grinder,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'disc' : 'disc-outline'}
-              size={22}
+            <AppIcon
+              name="disc"
+              size={20}
+              strokeWidth={focused ? 1.9 : 1.6}
               color={typeof color === 'string' ? color : theme.text}
             />
           ),
@@ -87,11 +93,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="journal"
         options={{
-          title: 'Journal',
+          title: t.tabs.journal,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'journal' : 'journal-outline'}
-              size={21}
+            <AppIcon
+              name="notebook-pen"
+              size={20}
+              strokeWidth={focused ? 1.9 : 1.6}
               color={typeof color === 'string' ? color : theme.text}
             />
           ),

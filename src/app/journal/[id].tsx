@@ -1,17 +1,18 @@
 import { Facts } from '@/components/brewing/facts';
 import { BrandCard, BrandLabel } from '@/components/common/brand-card';
 import { Button, IconButton } from '@/components/common/button';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, ErrorState, LoadingState } from '@/components/common/empty-state';
 import { TextField } from '@/components/common/field';
 import { StarRating, RatingBar } from '@/components/common/rating';
 import { Screen } from '@/components/common/screen';
 import { DataRow, SectionHeader } from '@/components/common/section';
 import { BottomSheet } from '@/components/common/sheet';
 import { AppText } from '@/components/common/text';
-import { RATING_CATEGORIES, EMPTY_RATINGS } from '@/constants/defaults';
+import { EMPTY_RATINGS, getRatingCategories, localizeStepLabel } from '@/constants/defaults';
 import { BrandSurface, Radius, Spacing } from '@/constants/theme';
 import { useBrewDraft } from '@/contexts/brew-draft-context';
 import { useDatabase, useFocusedQuery } from '@/hooks/use-database';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { buildTimeline } from '@/services/brewing/timeline';
 import { calculateBrew } from '@/services/calculator/v60';
@@ -34,11 +35,13 @@ import { Alert, StyleSheet, View } from 'react-native';
 export default function SessionDetailScreen() {
   const theme = useTheme();
   const db = useDatabase();
+  const { lang, t } = useTranslation();
+  const ratingCategories = getRatingCategories(lang);
   const { beginBrew } = useBrewDraft();
   const { id } = useLocalSearchParams<{ id: string }>();
   const sessionId = typeof id === 'string' ? id : '';
 
-  const { data, reload } = useFocusedQuery(
+  const { data, loading, error, reload } = useFocusedQuery(
     async (database) => {
       const session = sessionId ? await getSession(database, sessionId) : null;
       if (!session) return null;
@@ -54,10 +57,10 @@ export default function SessionDetailScreen() {
 
   const confirmDelete = useCallback(() => {
     if (!data) return;
-    Alert.alert('Delete this brew?', 'The session will be removed from your journal.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t.journal.deleteTitle, t.journal.deleteMsg, [
+      { text: t.common.cancel, style: 'cancel' },
       {
-        text: 'Delete',
+        text: t.common.delete,
         style: 'destructive',
         onPress: async () => {
           await deleteSession(db, data.session.id);
@@ -65,7 +68,7 @@ export default function SessionDetailScreen() {
         },
       },
     ]);
-  }, [data, db]);
+  }, [data, db, t]);
 
   const brewAgain = useCallback(() => {
     if (!data) return;
@@ -88,7 +91,7 @@ export default function SessionDetailScreen() {
           }).steps;
     beginBrew({
       recipeId: session.recipeId,
-      recipeName: session.recipeNameSnapshot ?? 'Re-brew',
+      recipeName: session.recipeNameSnapshot ?? t.journal.rebrewName,
       coffeeDoseG: session.coffeeDoseG,
       ratio: session.ratio,
       waterTempC: session.waterTempC,
@@ -102,17 +105,37 @@ export default function SessionDetailScreen() {
       source: 'recipe',
     });
     router.push('/brewing/timer');
-  }, [beginBrew, data]);
+  }, [beginBrew, data, t.journal.rebrewName]);
+
+  if (loading && !data) {
+    return (
+      <Screen>
+        <View style={styles.loading}>
+          <LoadingState label={t.journal.loadingSingle} />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <Screen>
+        <View style={styles.loading}>
+          <ErrorState message={error} onRetry={reload} />
+        </View>
+      </Screen>
+    );
+  }
 
   if (!data) {
     return (
       <Screen>
         <View style={styles.loading}>
           <EmptyState
-            icon="alert-circle-outline"
-            title="Brew not found"
-            description="This session may have been deleted."
-            actionLabel="Back to the journal"
+            icon="alert-circle"
+            title={t.journal.notFoundTitle}
+            description={t.journal.notFoundDesc}
+            actionLabel={t.journal.backToJournal}
             onAction={() => router.replace('/journal')}
           />
         </View>
@@ -130,7 +153,7 @@ export default function SessionDetailScreen() {
       durationS: step.durationS,
     }))
   );
-  const title = session.beanNameSnapshot ?? session.recipeNameSnapshot ?? 'Brew session';
+  const title = session.beanNameSnapshot ?? session.recipeNameSnapshot ?? t.journal.defaultSessionTitle;
   const average =
     session.ratings != null
       ? Object.values(session.ratings).filter((value): value is number => value != null)
@@ -141,36 +164,43 @@ export default function SessionDetailScreen() {
   return (
     <Screen
       footer={
-        <View style={[styles.footer, { borderTopColor: theme.border }]}>
-          <Button label="Brew this again" icon="repeat" size="lg" onPress={brewAgain} fullWidth />
+        <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
+          <Button
+            label={t.journal.brewAgain}
+            icon="repeat"
+            variant="accent"
+            size="lg"
+            onPress={brewAgain}
+            fullWidth
+          />
         </View>
       }>
       <View style={styles.topBar}>
-        <IconButton icon="chevron-back" label="Go back" onPress={() => router.back()} />
+        <IconButton icon="chevron-left" label={t.common.back} onPress={() => router.back()} />
         <View style={styles.flex} />
-        <IconButton icon="trash-outline" label="Delete session" onPress={confirmDelete} />
+        <IconButton icon="trash" label={t.journal.deleteSessionA11y} onPress={confirmDelete} />
       </View>
 
       <View style={styles.titleBlock}>
-        <AppText variant="label" tone="faint">
-          {formatDateTime(session.brewedAt)}
+        <AppText variant="caption" tone="faint" tabular>
+          {formatDateTime(session.brewedAt, lang)}
         </AppText>
         <AppText variant="display">{title}</AppText>
         {session.beanNameSnapshot && session.recipeNameSnapshot ? (
           <AppText variant="small" tone="muted">
-            Brewed with {session.recipeNameSnapshot}
+            {t.journal.brewedWith(session.recipeNameSnapshot)}
           </AppText>
         ) : null}
       </View>
 
       <BrandCard style={styles.hero}>
-        <BrandLabel>Tasting score</BrandLabel>
+        <BrandLabel>{t.journal.tastingScore}</BrandLabel>
         <View style={styles.heroScoreRow}>
-          <AppText variant="h1" color={BrandSurface.text}>
-            {averageValue != null ? formatRating(averageValue) : 'Not rated'}
+          <AppText variant="metricHero" color={BrandSurface.text}>
+            {averageValue != null ? formatRating(averageValue) : t.journal.notRated}
           </AppText>
           {averageValue != null ? (
-            <AppText variant="small" color={BrandSurface.muted}>
+            <AppText variant="small" color={BrandSurface.muted} tabular>
               / 5
             </AppText>
           ) : null}
@@ -179,22 +209,22 @@ export default function SessionDetailScreen() {
         <Facts
           tone="brand"
           items={[
-            { label: 'Dose', value: formatWeight(session.coffeeDoseG), unit: 'g' },
-            { label: 'Water', value: formatWeight(session.totalWaterG), unit: 'g' },
-            { label: 'Ratio', value: formatRatio(session.ratio) },
-            { label: 'Time', value: formatDuration(session.totalTimeS) },
+            { label: t.common.dose, value: formatWeight(session.coffeeDoseG), unit: 'g' },
+            { label: t.common.water, value: formatWeight(session.totalWaterG), unit: 'g' },
+            { label: t.common.ratio, value: formatRatio(session.ratio) },
+            { label: t.common.time, value: formatDuration(session.totalTimeS) },
           ]}
         />
       </BrandCard>
 
       <View style={styles.section}>
         <SectionHeader
-          title="Cup profile"
-          actionLabel="Edit"
+          title={t.journal.cupProfile}
+          actionLabel={t.common.edit}
           onAction={() => setSheetOpen(true)}
         />
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          {RATING_CATEGORIES.map((category) => (
+          {ratingCategories.map((category) => (
             <RatingBar
               key={category.key}
               label={category.label}
@@ -205,58 +235,81 @@ export default function SessionDetailScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader title="Brew details" />
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <DataRow label="Coffee" value={session.beanNameSnapshot ?? 'Not recorded'} />
+        <SectionHeader title={t.journal.brewDetails} />
+        <View
+          style={[
+            styles.detailsCard,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}>
+          <DataRow label={t.journal.coffee} value={session.beanNameSnapshot ?? t.common.notRecorded} />
           <DataRow
-            label="Grinder"
+            label={t.journal.grinder}
+            tabular
             value={
               session.grinderNameSnapshot && grinder
                 ? `${session.grinderNameSnapshot} · ${
                     session.grindSetting != null
-                      ? formatSetting(grinder, session.grindSetting)
-                      : 'no setting'
+                      ? formatSetting(grinder, session.grindSetting, lang)
+                      : t.journal.noSetting
                   }`
-                : (session.grinderNameSnapshot ?? 'Not recorded')
+                : (session.grinderNameSnapshot ?? t.common.notRecorded)
             }
           />
-          <DataRow label="Water temperature" value={formatTemperature(session.waterTempC)} />
+          <DataRow label={t.journal.waterTemp} tabular value={formatTemperature(session.waterTempC)} />
           <DataRow
-            label="Bloom water"
+            label={t.journal.bloomWater}
+            tabular
             value={session.bloomWaterG != null ? formatWeight(session.bloomWaterG, true) : '–'}
           />
-          <DataRow label="Total brew time" value={formatDuration(session.totalTimeS)} />
-          <DataRow label="Stages" value={String(timeline.length)} />
+          <DataRow label={t.journal.totalBrewTime} tabular value={formatDuration(session.totalTimeS)} />
+          <DataRow label={t.journal.stages} tabular last value={String(timeline.length)} />
         </View>
       </View>
 
       {timeline.length > 0 ? (
         <View style={styles.section}>
-          <SectionHeader title="Stage breakdown" />
-          <View style={styles.steps}>
-            {timeline.map((stage, index) => (
-              <View
-                key={`${stage.label}-${index}`}
-                style={[styles.stepRow, { borderBottomColor: theme.border }]}>
-                <AppText variant="small" tone="faint" style={styles.stepTime}>
-                  {formatDuration(stage.startS)}
-                </AppText>
-                <AppText variant="small" style={styles.flex}>
-                  {stage.label}
-                </AppText>
-                <AppText variant="small" tone="muted">
-                  {formatWeight(stage.targetWaterG, true)}
-                </AppText>
-              </View>
-            ))}
+          <SectionHeader title={t.journal.stageBreakdown} />
+          <View
+            style={[
+              styles.stepsCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}>
+            {timeline.map((stage, index) => {
+              const isLast = index === timeline.length - 1;
+              return (
+                <View
+                  key={`${stage.label}-${index}`}
+                  style={[
+                    styles.stepRow,
+                    !isLast && {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: theme.border,
+                    },
+                  ]}>
+                  <AppText variant="mono" tone="faint" style={styles.stepTime}>
+                    {formatDuration(stage.startS)}
+                  </AppText>
+                  <AppText variant="small" style={styles.flex}>
+                    {localizeStepLabel(stage.label, stage.kind, lang)}
+                  </AppText>
+                  <AppText variant="metricSmall" tone="muted" tabular>
+                    {formatWeight(stage.targetWaterG, true)}
+                  </AppText>
+                </View>
+              );
+            })}
           </View>
         </View>
       ) : null}
 
       {session.notes ? (
         <View style={styles.section}>
-          <SectionHeader title="Notes" />
-          <View style={[styles.notes, { backgroundColor: theme.goldSoft }]}>
+          <SectionHeader title={t.journal.notes} />
+          <View
+            style={[
+              styles.notes,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}>
             <AppText variant="body">{session.notes}</AppText>
           </View>
         </View>
@@ -276,10 +329,6 @@ export default function SessionDetailScreen() {
   );
 }
 
-/**
- * Mounted only while the sheet is open, so the form always starts from the
- * saved review without an effect syncing state.
- */
 function ReviewSheet({
   session,
   onClose,
@@ -291,6 +340,8 @@ function ReviewSheet({
 }) {
   const db = useDatabase();
   const theme = useTheme();
+  const { lang, t } = useTranslation();
+  const ratingCategories = getRatingCategories(lang);
   const [ratings, setRatings] = useState<BrewRatings>(session.ratings ?? EMPTY_RATINGS);
   const [notes, setNotes] = useState(session.notes ?? '');
   const [saving, setSaving] = useState(false);
@@ -302,8 +353,8 @@ function ReviewSheet({
       onSaved();
     } catch (caught) {
       Alert.alert(
-        'Could not save review',
-        caught instanceof Error ? caught.message : 'Please try again.'
+        t.journal.reviewSaveErr,
+        caught instanceof Error ? caught.message : t.timer.tryAgain
       );
     } finally {
       setSaving(false);
@@ -314,11 +365,20 @@ function ReviewSheet({
     <BottomSheet
       visible
       onClose={onClose}
-      title="Tasting notes"
-      subtitle="Rate what you actually tasted, 1 to 5."
-      footer={<Button label="Save review" onPress={save} loading={saving} size="lg" fullWidth />}>
+      title={t.journal.reviewTitle}
+      subtitle={t.journal.reviewSub}
+      footer={
+        <Button
+          label={t.journal.saveReview}
+          variant="accent"
+          onPress={save}
+          loading={saving}
+          size="lg"
+          fullWidth
+        />
+      }>
       <View style={styles.ratingRows}>
-        {RATING_CATEGORIES.map((category) => (
+        {ratingCategories.map((category) => (
           <View key={category.key} style={[styles.ratingRow, { borderBottomColor: theme.border }]}>
             <View style={styles.flex}>
               <AppText variant="bodyStrong">{category.label}</AppText>
@@ -342,10 +402,10 @@ function ReviewSheet({
       </View>
       <View style={styles.sheetField}>
         <TextField
-          label="What stood out?"
+          label={t.journal.whatStoodOut}
           value={notes}
           onChangeText={setNotes}
-          placeholder="Sweetness, finish, what to change next time"
+          placeholder={t.journal.reviewNotesPlaceholder}
           multiline
           maxLength={600}
         />
@@ -369,21 +429,33 @@ const styles = StyleSheet.create({
   section: { marginTop: Spacing.xxl },
   card: {
     borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     gap: Spacing.sm,
   },
-  steps: { gap: 0 },
+  detailsCard: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+  },
+  stepsCard: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+  },
   stepRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: Spacing.sm + 2,
   },
-  stepTime: { width: 40 },
-  notes: { borderRadius: Radius.md, padding: Spacing.lg },
+  stepTime: { width: 46, fontSize: 13 },
+  notes: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    padding: Spacing.md,
+  },
   ratingRows: { gap: Spacing.sm },
   ratingRow: {
     flexDirection: 'row',

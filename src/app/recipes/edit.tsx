@@ -1,18 +1,19 @@
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, ErrorState, LoadingState } from '@/components/common/empty-state';
 import { Screen } from '@/components/common/screen';
-import { AppText } from '@/components/common/text';
 import { RecipeForm } from '@/components/recipes/recipe-form';
 import { Spacing } from '@/constants/theme';
 import { useQuery } from '@/hooks/use-database';
+import { useTranslation } from '@/hooks/use-language';
 import { getRecipe } from '@/services/recipes';
 import { router, useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
 
 export default function EditRecipeScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const recipeId = typeof id === 'string' ? id : '';
 
-  const { data, loading } = useQuery(
+  const { data, loading, error, reload } = useQuery(
     async (db) => (recipeId ? getRecipe(db, recipeId) : null),
     recipeId
   );
@@ -21,9 +22,17 @@ export default function EditRecipeScreen() {
     return (
       <Screen>
         <View style={{ paddingTop: Spacing.xxxl }}>
-          <AppText variant="small" tone="muted">
-            Loading recipe…
-          </AppText>
+          <LoadingState label={t.recipes.detailLoading} />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (error) {
+    return (
+      <Screen>
+        <View style={{ paddingTop: Spacing.xxxl }}>
+          <ErrorState message={error} onRetry={reload} />
         </View>
       </Screen>
     );
@@ -34,10 +43,10 @@ export default function EditRecipeScreen() {
       <Screen>
         <View style={{ paddingTop: Spacing.xxxl }}>
           <EmptyState
-            icon="alert-circle-outline"
-            title="Recipe not found"
-            description="It may have been deleted. Head back to the library to pick another one."
-            actionLabel="Back to recipes"
+            icon="alert-circle"
+            title={t.recipes.notFoundTitle}
+            description={t.recipes.editNotFoundDesc}
+            actionLabel={t.recipes.backToRecipes}
             onAction={() => router.replace('/recipes')}
           />
         </View>

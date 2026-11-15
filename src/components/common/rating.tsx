@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Radius, Spacing } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
-import { Ionicons } from './icon';
+import { AppIcon } from './icon';
 import { AppText } from './text';
 
 interface StarRatingProps {
@@ -16,26 +17,27 @@ interface StarRatingProps {
 export function StarRating({
   value,
   onChange,
-  size = 26,
+  size = 24,
   clearable,
   label,
 }: StarRatingProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const interactive = Boolean(onChange);
 
   return (
     <View
       style={styles.stars}
       accessibilityRole={interactive ? 'adjustable' : 'text'}
-      accessibilityLabel={label ?? `Rating ${value ?? 0} of 5`}>
+      accessibilityLabel={label ?? t.common.ratingAccessibility(value)}>
       {[1, 2, 3, 4, 5].map((star) => {
         const filled = value != null && star <= value;
-        const icon = filled ? 'star' : 'star-outline';
         const content = (
-          <Ionicons
-            name={icon}
+          <AppIcon
+            name="star"
             size={size}
-            color={filled ? theme.gold : theme.borderStrong}
+            color={filled ? theme.accent : theme.textFaint}
+            filled={filled}
           />
         );
         if (!interactive) return <View key={star}>{content}</View>;
@@ -43,13 +45,16 @@ export function StarRating({
           <Pressable
             key={star}
             accessibilityRole="button"
-            accessibilityLabel={`${star} star${star === 1 ? '' : 's'}`}
-            hitSlop={6}
+            accessibilityLabel={t.common.starAccessibility(star)}
+            hitSlop={4}
             onPress={() => {
               if (clearable && value === star) onChange?.(0);
               else onChange?.(star);
             }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
+            style={({ pressed }) => [
+              styles.starTarget,
+              { opacity: pressed ? 0.6 : 1 },
+            ]}>
             {content}
           </Pressable>
         );
@@ -84,11 +89,14 @@ export function RatingBar({ label, value, max = 5, hint }: RatingBarProps) {
           <View
             style={[
               styles.barFill,
-              { width: `${ratio * 100}%`, backgroundColor: theme.gold },
+              { width: `${ratio * 100}%`, backgroundColor: theme.accent },
             ]}
           />
         </View>
-        <AppText variant="caption" tone={value == null ? 'faint' : 'default'} style={styles.barValue}>
+        <AppText
+          variant="metricSmall"
+          tone={value == null ? 'faint' : 'default'}
+          style={styles.barValue}>
           {value == null ? '–' : `${value}`}
         </AppText>
       </View>
@@ -98,10 +106,16 @@ export function RatingBar({ label, value, max = 5, hint }: RatingBarProps) {
 
 const styles = StyleSheet.create({
   stars: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  starTarget: {
+    minWidth: 40,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  barLabel: { width: 92 },
+  barLabel: { width: 96 },
   barRight: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  barTrack: { flex: 1, height: 6, borderRadius: Radius.pill, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: Radius.pill },
-  barValue: { width: 16, textAlign: 'right' },
+  barTrack: { flex: 1, height: 6, borderRadius: Radius.xs, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: Radius.xs },
+  barValue: { width: 20, textAlign: 'right' },
 });

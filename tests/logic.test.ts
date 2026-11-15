@@ -28,10 +28,11 @@ import {
   totalWaterFor,
 } from '@/utils/calculations';
 import { clicksForSetting, macroStepsFor, referenceStatus } from '@/utils/grinder';
-import { formatDuration, formatRatio, formatStopwatch, formatWeight } from '@/utils/formatting';
+import { formatDuration, formatRatio, formatRoastDate, formatStopwatch, formatWeight, greeting } from '@/utils/formatting';
 import { validateBean, validateGrinder, validateRecipe } from '@/utils/validation';
 import { EMPTY_GRINDER_DRAFT, STARTER_RECIPES } from '@/constants/defaults';
-import { GUIDE_ARTICLES } from '@/constants/guide';
+import { GUIDE_ARTICLES, getGuideArticles } from '@/constants/guide';
+import { resolveLanguage } from '@/i18n';
 import { BUILTIN_GRINDERS } from '@/database/seed';
 import type { CoffeeBeanDraft, PourStep } from '@/types';
 
@@ -67,6 +68,34 @@ test('editing one stage keeps the total intact', () => {
   assert.equal(round1(sum(next)), total);
   assert.equal(next[0], 100);
   assert.ok(next.every((amount) => amount >= 0.1));
+});
+
+test('a stage that swallows the rest of the schedule still adds up', () => {
+  // Regression: absorbing the whole difference in one neighbour and clamping it
+  // to the 0.1 g floor used to let the total drift (e.g. 195 g became 200.1 g),
+  // which then reached the timer and the saved session.
+  const targets = [0.1, 1, 5, 30];
+  for (const total of [99.9, 168.3, 195, 204, 240, 288]) {
+    for (const parts of [1, 2, 3, 4, 5, 6]) {
+      const amounts = distributeWater(total, parts);
+      const values = [...targets, round1(total / 2), round1(total - 0.1), round1(total * 0.9)];
+      for (let index = 0; index < parts; index += 1) {
+        for (const next of values) {
+          const result = adjustStageAmount(amounts, index, next, total);
+          assert.equal(result.length, parts);
+          assert.equal(
+            round1(sum(result)),
+            round1(total),
+            `total ${total} with ${parts} stages, stage ${index} set to ${next} gave ${result.join(', ')}`
+          );
+          assert.ok(
+            result.every((amount) => amount >= 0.1),
+            `floor respected: ${result.join(', ')}`
+          );
+        }
+      }
+    }
+  }
 });
 
 test('a single pour is locked to the remaining water', () => {
@@ -227,6 +256,19 @@ test('recipe validation catches impossible input', () => {
   assert.ok(bad.bloomMultiplier);
   assert.ok(bad.bloomDurationS);
   assert.ok(bad.steps);
+
+  // Bloom water must leave something for the pours (multiplier >= ratio is impossible).
+  const impossibleBloom = validateRecipe({
+    name: 'Too much bloom',
+    coffeeDoseG: 15,
+    ratio: 5,
+    waterTempC: 92,
+    bloomMultiplier: 6,
+    bloomDurationS: 45,
+    steps,
+    totalWaterG: 75,
+  });
+  assert.ok(impossibleBloom.bloomMultiplier);
 });
 
 test('formatting reads like a recipe card', () => {
@@ -294,4 +336,26 @@ test('guide articles have unique routes, content and sources', () => {
   }
 
   assert.equal(GUIDE_ARTICLES.length, 8);
+});
+
+test('Indonesian translations cover all guide articles, formatting and labels', () => {
+  const idArticles = getGuideArticles('id');
+  assert.equal(idArticles.length, GUIDE_ARTICLES.length);
+  assert.deepEqual(
+    idArticles.map((a) => a.slug),
+    GUIDE_ARTICLES.map((a) => a.slug)
+  );
+  for (const article of idArticles) {
+    assert.ok(article.title.length > 0);
+    assert.ok(article.summary.length > 0);
+    assert.ok(article.sections.length >= 2);
+    assert.ok(article.sources.length >= 1);
+  }
+
+  assert.equal(resolveLanguage('id'), 'id');
+  assert.equal(resolveLanguage('en'), 'en');
+  assert.equal(pourLabel(0, 3, 'id'), 'Tuang pertama');
+  assert.equal(pourLabel(0, 1, 'id'), 'Tuang tunggal');
+  assert.equal(greeting(new Date(2026, 0, 1, 9, 0), 'id'), 'Selamat pagi');
+  assert.equal(formatRoastDate(null, 'id'), 'Tanggal sangrai belum diisi');
 });

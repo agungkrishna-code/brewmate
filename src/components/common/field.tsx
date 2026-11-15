@@ -10,9 +10,10 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { FontFamily, Radius, Spacing, TouchTarget } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { parseNumber } from '@/utils/calculations';
-import { Ionicons, type IconName } from './icon';
+import { AppIcon, type IconName } from './icon';
 import { AppText } from './text';
 
 interface FieldProps {
@@ -29,10 +30,14 @@ export function Field({ label, hint, error, required, children, style }: FieldPr
     <View style={[styles.field, style]}>
       {label ? (
         <View style={styles.labelRow}>
-          <AppText variant="label" tone="muted">
+          <AppText variant="fieldLabel" tone="muted">
             {label}
           </AppText>
-          {required ? <AppText variant="caption" tone="gold">•</AppText> : null}
+          {required ? (
+            <AppText variant="fieldLabel" tone="accent">
+              *
+            </AppText>
+          ) : null}
         </View>
       ) : null}
       {children}
@@ -51,32 +56,34 @@ export function Field({ label, hint, error, required, children, style }: FieldPr
 
 interface TextFieldProps {
   label?: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  placeholder?: string;
   hint?: string;
   error?: string;
   required?: boolean;
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder?: string;
   multiline?: boolean;
+  maxLength?: number;
   keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-  maxLength?: number;
+  suffix?: string;
   prefixIcon?: IconName;
   style?: StyleProp<ViewStyle>;
 }
 
 export function TextField({
   label,
-  value,
-  onChangeText,
-  placeholder,
   hint,
   error,
   required,
+  value,
+  onChangeText,
+  placeholder,
   multiline,
+  maxLength,
   keyboardType,
   autoCapitalize = 'sentences',
-  maxLength,
+  suffix,
   prefixIcon,
   style,
 }: TextFieldProps) {
@@ -88,35 +95,37 @@ export function TextField({
       <View
         style={[
           styles.inputShell,
+          multiline && styles.multilineShell,
           {
-            backgroundColor: theme.surfaceSunken,
-            borderColor: error ? theme.danger : focused ? theme.gold : theme.border,
-            minHeight: multiline ? 96 : TouchTarget,
+            backgroundColor: theme.surface,
+            borderColor: error ? theme.danger : focused ? theme.accent : theme.border,
+            borderWidth: focused ? 1.5 : 1,
           },
         ]}>
-        {prefixIcon ? <Ionicons name={prefixIcon} size={17} color={theme.textFaint} /> : null}
+        {prefixIcon ? <AppIcon name={prefixIcon} size={17} color={theme.textFaint} /> : null}
         <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor={theme.textFaint}
+          multiline={multiline}
+          maxLength={maxLength}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
-          autoCorrect={false}
-          maxLength={maxLength}
-          multiline={multiline}
+          textAlignVertical={multiline ? 'top' : 'center'}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           style={[
             styles.input,
-            {
-              color: theme.text,
-              fontFamily: FontFamily.sans,
-              minHeight: multiline ? 96 : undefined,
-              textAlignVertical: multiline ? 'top' : 'center',
-            },
+            multiline && styles.multilineInput,
+            { color: theme.text },
           ]}
         />
+        {suffix ? (
+          <AppText variant="small" tone="faint" tabular>
+            {suffix}
+          </AppText>
+        ) : null}
       </View>
     </Field>
   );
@@ -124,25 +133,26 @@ export function TextField({
 
 interface NumberFieldProps {
   label?: string;
-  value: number | null;
-  onChange: (value: number | null) => void;
-  prefix?: string;
-  suffix?: string;
-  placeholder?: string;
   hint?: string;
   error?: string;
   required?: boolean;
-  step?: number;
+  value: number | null;
+  onChange: (value: number | null) => void;
+  placeholder?: string;
+  suffix?: string;
+  prefix?: string;
   decimals?: number;
+  allowEmpty?: boolean;
+  /** Optional +/- stepper buttons docked inside the input shell. */
+  stepper?: boolean;
+  step?: number;
   min?: number;
   max?: number;
-  /** Shows minus/plus buttons next to the input. */
-  stepper?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
-function formatValue(value: number | null, decimals: number): string {
-  if (value == null) return '';
+function formatNumeric(value: number | null, decimals = 1): string {
+  if (value == null || !Number.isFinite(value)) return '';
   const factor = 10 ** decimals;
   const rounded = Math.round(value * factor) / factor;
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(decimals);
@@ -150,119 +160,154 @@ function formatValue(value: number | null, decimals: number): string {
 
 export function NumberField({
   label,
-  value,
-  onChange,
-  prefix,
-  suffix,
-  placeholder,
   hint,
   error,
   required,
-  step = 1,
+  value,
+  onChange,
+  placeholder,
+  suffix,
+  prefix,
   decimals = 1,
+  allowEmpty = false,
+  stepper = false,
+  step = 1,
+  // Defaults restored from the pre-redesign field: a stepper must never emit a
+  // value below the minimum (it used to produce settings like -0.5).
   min = 0,
   max = 9999,
-  stepper,
   style,
 }: NumberFieldProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
+  const [text, setText] = useState(() => formatNumeric(value, decimals));
   const [focused, setFocused] = useState(false);
-  const [draft, setDraft] = useState(() => formatValue(value, decimals));
-  const emitted = useRef<number | null>(value ?? null);
+  const focusedRef = useRef(false);
 
-  // Keep the draft in sync when the value is changed from outside (presets,
-  // stepper buttons, or another field forcing a recalculation).
   useEffect(() => {
-    if (value !== emitted.current) {
-      setDraft(formatValue(value, decimals));
-      emitted.current = value ?? null;
+    if (!focusedRef.current) {
+      setText(formatNumeric(value, decimals));
     }
-  }, [decimals, value]);
+  }, [value, decimals]);
 
-  const commit = (next: number | null) => {
-    emitted.current = next;
-    onChange(next);
+  const clamp = (n: number) => {
+    let next = n;
+    if (min != null) next = Math.max(min, next);
+    if (max != null) next = Math.min(max, next);
+    return next;
   };
 
-  const handleText = (text: string) => {
-    setDraft(text);
-    const parsed = parseNumber(text);
-    if (parsed == null) {
-      if (text.trim() === '') commit(null);
+  const handleChangeText = (raw: string) => {
+    setText(raw);
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      if (allowEmpty) onChange(null);
       return;
     }
-    commit(parsed);
+    const parsed = parseNumber(trimmed);
+    if (parsed != null) onChange(parsed);
+  };
+
+  const handleBlur = () => {
+    focusedRef.current = false;
+    setFocused(false);
+    const parsed = parseNumber(text);
+    if (parsed == null) {
+      if (allowEmpty) {
+        setText('');
+        onChange(null);
+      } else {
+        setText(formatNumeric(value, decimals));
+      }
+      return;
+    }
+    const bounded = clamp(parsed);
+    const factor = 10 ** decimals;
+    const rounded = Math.round(bounded * factor) / factor;
+    onChange(rounded);
+    setText(formatNumeric(rounded, decimals));
   };
 
   const nudge = (direction: 1 | -1) => {
-    const base = value ?? min;
-    const next = Math.round((base + direction * step) * 10 ** decimals) / 10 ** decimals;
-    const bounded = Math.min(Math.max(next, min), max);
-    setDraft(formatValue(bounded, decimals));
-    commit(bounded);
+    const base = value ?? min ?? 0;
+    const factor = 10 ** decimals;
+    const next = Math.round(clamp(base + direction * step) * factor) / factor;
+    onChange(next);
+    setText(formatNumeric(next, decimals));
   };
 
   return (
     <Field label={label} hint={hint} error={error} required={required} style={style}>
-      <View style={styles.numberRow}>
+      <View
+        style={[
+          styles.dockedShell,
+          {
+            backgroundColor: theme.surface,
+            borderColor: error ? theme.danger : focused ? theme.accent : theme.border,
+            borderWidth: focused ? 1.5 : 1,
+          },
+        ]}>
         {stepper ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Decrease"
+            accessibilityLabel={t.common.decrease(label ?? '')}
             onPress={() => nudge(-1)}
             style={({ pressed }) => [
-              styles.stepButton,
-              { backgroundColor: theme.surfaceSunken, opacity: pressed ? 0.6 : 1 },
+              styles.dockedBtn,
+              {
+                borderRightColor: theme.border,
+                backgroundColor: pressed ? theme.surfaceSunken : 'transparent',
+              },
             ]}>
-            <Ionicons name="remove" size={18} color={theme.text} />
+            <AppIcon name="minus" size={16} color={theme.textMuted} />
           </Pressable>
         ) : null}
-        <View
-          style={[
-            styles.inputShell,
-            {
-              flex: 1,
-              backgroundColor: theme.surfaceSunken,
-              borderColor: error ? theme.danger : focused ? theme.gold : theme.border,
-            },
-          ]}>
+
+        <View style={[styles.dockedCenter, !stepper && styles.dockedCenterUnstepped]}>
           {prefix ? (
-            <AppText variant="small" tone="faint">
+            <AppText variant="small" tone="faint" tabular>
               {prefix}
             </AppText>
           ) : null}
           <TextInput
-            value={draft}
-            onChangeText={handleText}
+            value={text}
+            onChangeText={handleChangeText}
+            onFocus={() => {
+              focusedRef.current = true;
+              setFocused(true);
+            }}
+            onBlur={handleBlur}
             placeholder={placeholder}
             placeholderTextColor={theme.textFaint}
-            keyboardType="decimal-pad"
-            onFocus={() => setFocused(true)}
-            onBlur={() => {
-              setFocused(false);
-              setDraft(formatValue(value, decimals));
-            }}
+            keyboardType={decimals > 0 ? 'decimal-pad' : 'number-pad'}
             style={[
               styles.input,
-              { color: theme.text, fontFamily: FontFamily.sans, textAlign: 'left' },
+              styles.numberInput,
+              stepper ? styles.centeredNumber : undefined,
+              { color: theme.text },
             ]}
           />
           {suffix ? (
-            <AppText variant="small" tone="faint">
+            <AppText variant="small" tone="faint" tabular>
               {suffix}
             </AppText>
           ) : null}
         </View>
+
         {stepper ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Increase"
+            accessibilityLabel={t.common.increase(label ?? '')}
             onPress={() => nudge(1)}
             style={({ pressed }) => [
-              styles.stepButton,
-              { backgroundColor: theme.surfaceSunken, opacity: pressed ? 0.6 : 1 },
+              styles.dockedBtn,
+              styles.dockedBtnRight,
+              {
+                borderLeftColor: theme.border,
+                backgroundColor: pressed ? theme.surfaceSunken : 'transparent',
+              },
             ]}>
-            <Ionicons name="add" size={18} color={theme.text} />
+            <AppIcon name="plus" size={16} color={theme.textMuted} />
           </Pressable>
         ) : null}
       </View>
@@ -272,60 +317,56 @@ export function NumberField({
 
 interface SelectFieldProps {
   label?: string;
-  value: string;
-  placeholder?: string;
-  onPress: () => void;
-  disabled?: boolean;
   hint?: string;
   error?: string;
+  value: string | null;
+  placeholder?: string;
   icon?: IconName;
+  disabled?: boolean;
+  onPress: () => void;
   style?: StyleProp<ViewStyle>;
 }
 
 export function SelectField({
   label,
-  value,
-  placeholder = 'Select',
-  onPress,
-  disabled,
   hint,
   error,
+  value,
+  placeholder,
   icon,
+  disabled,
+  onPress,
   style,
 }: SelectFieldProps) {
   const theme = useTheme();
-  const isEmpty = value.trim().length === 0;
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t.common.selectPlaceholder;
 
   return (
     <Field label={label} hint={hint} error={error} style={style}>
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={`${label ?? 'Option'}: ${value ?? resolvedPlaceholder}`}
         accessibilityState={{ disabled: Boolean(disabled) }}
-        accessibilityLabel={label ? `${label}: ${value || placeholder}` : value || placeholder}
         disabled={disabled}
         onPress={onPress}
         style={({ pressed }) => [
           styles.inputShell,
           {
-            minHeight: TouchTarget,
-            backgroundColor: theme.surfaceSunken,
+            backgroundColor: disabled ? theme.surfaceSunken : theme.surface,
             borderColor: error ? theme.danger : theme.border,
-            opacity: disabled ? 0.75 : pressed ? 0.7 : 1,
+            opacity: disabled ? 0.65 : pressed ? 0.78 : 1,
           },
         ]}>
-        {icon ? <Ionicons name={icon} size={17} color={theme.textFaint} /> : null}
+        {icon ? <AppIcon name={icon} size={17} color={theme.textFaint} /> : null}
         <AppText
           variant="body"
-          tone={isEmpty ? 'faint' : 'default'}
+          color={value ? theme.text : theme.textFaint}
           numberOfLines={1}
           style={styles.flex}>
-          {isEmpty ? placeholder : value}
+          {value ?? resolvedPlaceholder}
         </AppText>
-        <Ionicons
-          name={disabled ? 'lock-closed-outline' : 'chevron-down'}
-          size={16}
-          color={theme.textFaint}
-        />
+        {!disabled ? <AppIcon name="chevron-down" size={16} color={theme.textMuted} /> : null}
       </Pressable>
     </Field>
   );
@@ -333,71 +374,128 @@ export function SelectField({
 
 interface SwitchRowProps {
   label: string;
+  hint?: string;
   description?: string;
   value: boolean;
-  onValueChange: (value: boolean) => void;
+  onValueChange: (next: boolean) => void;
   icon?: IconName;
 }
 
-export function SwitchRow({ label, description, value, onValueChange, icon }: SwitchRowProps) {
+export function SwitchRow({
+  label,
+  hint,
+  description,
+  value,
+  onValueChange,
+  icon,
+}: SwitchRowProps) {
   const theme = useTheme();
-
+  const sub = hint ?? description;
   return (
-    <View style={styles.switchRow}>
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      accessibilityLabel={label}
+      onPress={() => onValueChange(!value)}
+      style={styles.switchRow}>
       {icon ? (
         <View style={[styles.switchIcon, { backgroundColor: theme.surfaceSunken }]}>
-          <Ionicons name={icon} size={17} color={theme.textMuted} />
+          <AppIcon name={icon} size={17} color={theme.textMuted} />
         </View>
       ) : null}
       <View style={styles.flex}>
         <AppText variant="bodyStrong">{label}</AppText>
-        {description ? (
+        {sub ? (
           <AppText variant="caption" tone="muted">
-            {description}
+            {sub}
           </AppText>
         ) : null}
       </View>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        accessibilityLabel={label}
-        trackColor={{ false: theme.border, true: theme.gold }}
-        thumbColor={value ? theme.surface : theme.surface}
-        ios_backgroundColor={theme.border}
-      />
-    </View>
+      {/* The row owns the press. Without this the switch would fire its own
+          handler *and* the row's, toggling twice so the tap looks ignored. */}
+      <View
+        pointerEvents="none"
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants">
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          trackColor={{ false: theme.borderStrong, true: theme.accent }}
+          thumbColor={theme.switchThumb}
+        />
+      </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  field: { gap: Spacing.xs },
-  labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  flex: { flex: 1 },
+  field: { gap: Spacing.xs + 2 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   inputShell: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.sm,
+    minHeight: TouchTarget,
+    paddingHorizontal: Spacing.md,
     borderRadius: Radius.md,
     borderWidth: 1,
-    paddingHorizontal: Spacing.md,
-    gap: Spacing.sm,
+  },
+  multilineShell: {
+    minHeight: 96,
+    paddingVertical: Spacing.sm + 2,
+    alignItems: 'flex-start',
   },
   input: {
     flex: 1,
+    fontFamily: FontFamily.sans,
     fontSize: 15,
-    paddingVertical: Spacing.md,
-    padding: 0,
+    paddingVertical: 0,
   },
-  numberRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  stepButton: {
-    width: TouchTarget,
-    height: TouchTarget,
+  numberInput: {
+    fontFamily: FontFamily.sansMedium,
+    fontVariant: ['tabular-nums'],
+    minWidth: 28,
+  },
+  centeredNumber: {
+    textAlign: 'center',
+  },
+  multilineInput: { minHeight: 76 },
+  dockedShell: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    minHeight: TouchTarget,
     borderRadius: Radius.md,
+    overflow: 'hidden',
+  },
+  dockedBtn: {
+    width: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRightWidth: StyleSheet.hairlineWidth,
+  },
+  dockedBtnRight: {
+    borderRightWidth: 0,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+  },
+  dockedCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.xs,
+  },
+  dockedCenterUnstepped: {
+    justifyContent: 'flex-start',
+    paddingHorizontal: Spacing.md,
   },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+    minHeight: TouchTarget,
     paddingVertical: Spacing.sm,
   },
   switchIcon: {
@@ -407,5 +505,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  flex: { flex: 1 },
 });

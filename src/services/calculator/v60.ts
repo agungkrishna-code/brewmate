@@ -7,7 +7,8 @@
  * total, so the scale target and the sum of the stages never disagree.
  */
 
-import { STAGE_LABELS } from '@/constants/defaults';
+import { getStageLabels } from '@/constants/defaults';
+import type { Language } from '@/i18n';
 import type { PourStep } from '@/types';
 import {
   bloomWaterFor,
@@ -17,7 +18,10 @@ import {
   totalWaterFor,
 } from '@/utils/calculations';
 
-const POUR_ORDINALS = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth'];
+const POUR_ORDINALS: Record<Language, readonly string[]> = {
+  en: ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth'],
+  id: ['pertama', 'kedua', 'ketiga', 'keempat', 'kelima', 'keenam'],
+};
 
 export interface BrewCalculation {
   totalWaterG: number;
@@ -43,9 +47,14 @@ export interface BrewCalculationInput {
 export const DEFAULT_POUR_DURATION_S = 30;
 export const DEFAULT_DRAWDOWN_DURATION_S = 45;
 
-export function pourLabel(index: number, count: number): string {
+export function pourLabel(index: number, count: number, lang: Language = 'en'): string {
+  if (lang === 'id') {
+    if (count === 1) return 'Tuang tunggal';
+    const ordinal = POUR_ORDINALS.id[index];
+    return ordinal ? `Tuang ${ordinal}` : `Tuang ${index + 1}`;
+  }
   if (count === 1) return 'Single pour';
-  const ordinal = POUR_ORDINALS[index] ?? `Pour ${index + 1}`;
+  const ordinal = POUR_ORDINALS.en[index] ?? `Pour ${index + 1}`;
   return `${ordinal} pour`;
 }
 
@@ -57,7 +66,10 @@ export function buildStages(params: {
   pourDurationS: number;
   drawdownDurationS: number;
   includeDrawdown: boolean;
+  lang?: Language;
 }): PourStep[] {
+  const lang = params.lang ?? 'en';
+  const stageLabels = getStageLabels(lang);
   // Cumulative targets are measured on the scale, so they start after the bloom.
   const pourCumulative = cumulative(params.pourAmounts);
   const steps: PourStep[] = [];
@@ -65,7 +77,7 @@ export function buildStages(params: {
 
   steps.push({
     stepOrder: order++,
-    label: STAGE_LABELS.bloom,
+    label: stageLabels.bloom,
     kind: 'bloom',
     targetWaterG: round1(params.bloomWaterG),
     durationS: Math.round(params.bloomDurationS),
@@ -74,7 +86,7 @@ export function buildStages(params: {
   params.pourAmounts.forEach((_, index) => {
     steps.push({
       stepOrder: order++,
-      label: pourLabel(index, params.pourAmounts.length),
+      label: pourLabel(index, params.pourAmounts.length, lang),
       kind: 'pour',
       targetWaterG: round1(params.bloomWaterG + pourCumulative[index]),
       durationS: Math.round(params.pourDurationS),
@@ -84,7 +96,7 @@ export function buildStages(params: {
   if (params.includeDrawdown) {
     steps.push({
       stepOrder: order++,
-      label: STAGE_LABELS.drawdown,
+      label: stageLabels.drawdown,
       kind: 'drawdown',
       targetWaterG: round1(params.bloomWaterG + (pourCumulative[pourCumulative.length - 1] ?? 0)),
       durationS: Math.round(params.drawdownDurationS),

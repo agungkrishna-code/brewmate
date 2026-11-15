@@ -1,9 +1,11 @@
 import type { CoffeeBeanWithStats } from '@/types';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { localizeProcessMethod, localizeRoastLevel } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateShort, formatRating, formatRoastDate } from '@/utils/formatting';
-import { Ionicons } from '../common/icon';
+import { AppIcon } from '../common/icon';
 import { AppText } from '../common/text';
 
 interface BeanRowProps {
@@ -13,19 +15,20 @@ interface BeanRowProps {
 
 export function BeanRow({ bean, onPress }: BeanRowProps) {
   const theme = useTheme();
+  const { lang, t } = useTranslation();
   const origin = bean.origin || [bean.region, bean.country].filter(Boolean).join(', ');
   const brewMeta =
     bean.sessionCount === 0
-      ? 'Not brewed yet'
-      : `${bean.sessionCount} brew${bean.sessionCount === 1 ? '' : 's'} · last ${formatDateShort(
-          bean.lastBrewedAt
-        )}`;
-  const roastMeta = bean.roastDate ? `Roasted ${formatRoastDate(bean.roastDate)}` : null;
+      ? t.beans.notBrewedYet
+      : t.beans.brewMeta(bean.sessionCount, formatDateShort(bean.lastBrewedAt, lang));
+  const roastMeta = bean.roastDate
+    ? t.beans.roastedPrefix(formatRoastDate(bean.roastDate, lang))
+    : null;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${bean.name} coffee details`}
+      accessibilityLabel={t.beans.rowA11y(bean.name)}
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
@@ -35,8 +38,12 @@ export function BeanRow({ bean, onPress }: BeanRowProps) {
           opacity: pressed ? 0.85 : 1,
         },
       ]}>
-      <View style={[styles.initial, { backgroundColor: theme.primarySoft }]}>
-        <AppText variant="h3" color={theme.primary}>
+      <View
+        style={[
+          styles.initial,
+          { backgroundColor: theme.surfaceSunken, borderColor: theme.border },
+        ]}>
+        <AppText variant="h3" color={theme.text}>
           {bean.name.trim().charAt(0).toUpperCase() || '?'}
         </AppText>
       </View>
@@ -46,9 +53,15 @@ export function BeanRow({ bean, onPress }: BeanRowProps) {
           {bean.name}
         </AppText>
         <AppText variant="caption" tone="muted" numberOfLines={1}>
-          {[origin, bean.process, bean.roastLevel].filter(Boolean).join(' · ')}
+          {[
+            origin,
+            localizeProcessMethod(bean.process, lang),
+            localizeRoastLevel(bean.roastLevel, lang),
+          ]
+            .filter(Boolean)
+            .join(' · ') || t.beans.coffeeBagFallback}
         </AppText>
-        <AppText variant="caption" tone="faint" numberOfLines={1}>
+        <AppText variant="caption" tone="faint" tabular numberOfLines={1}>
           {[brewMeta, roastMeta].filter(Boolean).join(' · ')}
         </AppText>
       </View>
@@ -56,13 +69,13 @@ export function BeanRow({ bean, onPress }: BeanRowProps) {
       <View style={styles.trailing}>
         {bean.averageRating != null ? (
           <View style={styles.rating}>
-            <Ionicons name="star" size={12} color={theme.gold} />
-            <AppText variant="caption" tone="muted">
+            <AppIcon name="star" size={12} color={theme.accent} filled />
+            <AppText variant="metricSmall" tone="muted" tabular>
               {formatRating(bean.averageRating)}
             </AppText>
           </View>
         ) : null}
-        <Ionicons name="chevron-forward" size={15} color={theme.textFaint} />
+        <AppIcon name="chevron-right" size={16} color={theme.textFaint} />
       </View>
     </Pressable>
   );
@@ -75,16 +88,17 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.md,
     borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
   },
   initial: {
     width: 42,
     height: 42,
-    borderRadius: Radius.md,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  body: { flex: 1, gap: 1 },
+  body: { flex: 1, gap: 2 },
   trailing: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  rating: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  rating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
 });

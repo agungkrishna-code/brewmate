@@ -1,18 +1,19 @@
 import { BeanForm } from '@/components/beans/bean-form';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, ErrorState, LoadingState } from '@/components/common/empty-state';
 import { Screen } from '@/components/common/screen';
-import { AppText } from '@/components/common/text';
 import { Spacing } from '@/constants/theme';
 import { useQuery } from '@/hooks/use-database';
+import { useTranslation } from '@/hooks/use-language';
 import { getBean } from '@/services/beans';
 import { router, useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
 
 export default function BeanDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const beanId = typeof id === 'string' ? id : '';
 
-  const { data, loading } = useQuery(
+  const { data, loading, error, reload } = useQuery(
     async (db) => (beanId ? getBean(db, beanId) : null),
     beanId
   );
@@ -21,9 +22,17 @@ export default function BeanDetailScreen() {
     return (
       <Screen>
         <View style={{ paddingTop: Spacing.xxxl }}>
-          <AppText variant="small" tone="muted">
-            Loading coffee…
-          </AppText>
+          <LoadingState label={t.beans.loadingSingle} />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (error) {
+    return (
+      <Screen>
+        <View style={{ paddingTop: Spacing.xxxl }}>
+          <ErrorState message={error} onRetry={reload} />
         </View>
       </Screen>
     );
@@ -34,10 +43,10 @@ export default function BeanDetailScreen() {
       <Screen>
         <View style={{ paddingTop: Spacing.xxxl }}>
           <EmptyState
-            icon="alert-circle-outline"
-            title="Coffee not found"
-            description="It may have been deleted."
-            actionLabel="Back to coffees"
+            icon="alert-circle"
+            title={t.beans.notFoundTitle}
+            description={t.beans.notFoundDesc}
+            actionLabel={t.beans.backToCoffees}
             onAction={() => router.replace('/beans')}
           />
         </View>

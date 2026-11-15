@@ -1,25 +1,28 @@
-import { Button, IconButton } from '@/components/common/button';
+import { IconButton } from '@/components/common/button';
 import { Chip, ChipRow } from '@/components/common/chip';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, ErrorState, LoadingState } from '@/components/common/empty-state';
+import { AppIcon } from '@/components/common/icon';
 import { Screen } from '@/components/common/screen';
-import { SectionHeader } from '@/components/common/section';
 import { AppText } from '@/components/common/text';
 import { RecipeCard } from '@/components/recipes/recipe-card';
-import { DISCLAIMERS } from '@/constants/defaults';
+import { getDisclaimers } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useFocusedQuery } from '@/hooks/use-database';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { listRecipeSummaries } from '@/services/recipes';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 type Filter = 'all' | 'favorites' | 'starters';
 
 export default function RecipesScreen() {
   const theme = useTheme();
+  const { lang, t } = useTranslation();
+  const disclaimers = getDisclaimers(lang);
   const [filter, setFilter] = useState<Filter>('all');
-  const { data } = useFocusedQuery(async (db) => listRecipeSummaries(db));
+  const { data, loading, error, reload } = useFocusedQuery(async (db) => listRecipeSummaries(db));
   const recipes = useMemo(() => data ?? [], [data]);
 
   const filtered = useMemo(() => {
@@ -32,17 +35,17 @@ export default function RecipesScreen() {
     <Screen>
       <View style={styles.headerRow}>
         <View style={styles.flex}>
-          <AppText variant="display">Recipes</AppText>
-          <AppText variant="small" tone="muted" style={styles.subtitle}>
+          <AppText variant="display">{t.recipes.title}</AppText>
+          <AppText variant="small" tone="muted" tabular style={styles.subtitle}>
             {recipes.length === 0
-              ? 'Save a plan once, brew it forever.'
-              : `${recipes.length} recipe${recipes.length === 1 ? '' : 's'} in your library`}
+              ? t.recipes.emptySubtitle
+              : t.recipes.countSubtitle(recipes.length)}
           </AppText>
         </View>
         <IconButton
-          icon="add"
-          label="New recipe"
-          variant="inverse"
+          icon="plus"
+          label={t.recipes.newRecipe}
+          variant="accent"
           onPress={() => router.push('/recipes/new')}
         />
       </View>
@@ -50,26 +53,32 @@ export default function RecipesScreen() {
       <View style={styles.filters}>
         <ChipRow>
           <Chip
-            label={`All ${recipes.length}`}
+            label={t.recipes.filterAll(recipes.length)}
             selected={filter === 'all'}
             onPress={() => setFilter('all')}
           />
           <Chip
-            label="Favourites"
-            icon="star-outline"
+            label={t.recipes.filterFavourites}
+            icon="star"
             selected={filter === 'favorites'}
             onPress={() => setFilter('favorites')}
           />
           <Chip
-            label="Starters"
-            icon="leaf-outline"
+            label={t.recipes.filterStarters}
+            icon="compass"
             selected={filter === 'starters'}
             onPress={() => setFilter('starters')}
           />
         </ChipRow>
       </View>
 
-      {filtered.length > 0 ? (
+      {error && !data ? (
+        <View style={styles.stateBox}>
+          <ErrorState message={error} onRetry={reload} />
+        </View>
+      ) : loading && !data ? (
+        <LoadingState label={t.recipes.loading} />
+      ) : filtered.length > 0 ? (
         <View style={styles.list}>
           {filtered.map((recipe) => (
             <RecipeCard
@@ -80,51 +89,46 @@ export default function RecipesScreen() {
           ))}
         </View>
       ) : (
-        <EmptyState
-          icon="book-outline"
-          title={filter === 'all' ? 'No recipes yet' : 'Nothing here yet'}
-          description={
-            filter === 'favorites'
-              ? 'Tap the star on any recipe to pin it to your favourites.'
-              : 'Create a recipe to keep your dose, ratio and pour schedule in one place.'
-          }
-          actionLabel="New recipe"
-          onAction={() => router.push('/recipes/new')}
-        />
+        <View style={styles.stateBox}>
+          <EmptyState
+            icon="book-open"
+            title={filter === 'all' ? t.recipes.emptyAllTitle : t.recipes.emptyFilterTitle}
+            description={
+              filter === 'favorites'
+                ? t.recipes.emptyFavDesc
+                : t.recipes.emptyAllDesc
+            }
+            actionLabel={t.recipes.newRecipe}
+            onAction={() => router.push('/recipes/new')}
+          />
+        </View>
       )}
 
-      <View style={styles.section}>
-        <SectionHeader
-          title="Using a starter"
-          actionLabel="Guide"
-          onAction={() => router.push('/guide/v60-basics')}
-        />
-        <View style={[styles.noteCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <AppText variant="small">
-            Brew a starter once without changing it. That is your baseline. Then adjust the
-            grind, one click at a time, until the sweetness and finish suit the coffee in the
-            bag.
-          </AppText>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t.recipes.starterGuideA11y}
+        onPress={() => router.push('/guide/v60-basics')}
+        style={({ pressed }) => [
+          styles.guideLink,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            opacity: pressed ? 0.85 : 1,
+          },
+        ]}>
+        <AppIcon name="book-open" size={17} color={theme.accent} />
+        <View style={styles.flex}>
+          <AppText variant="bodyStrong">{t.recipes.starterGuideTitle}</AppText>
           <AppText variant="caption" tone="muted">
-            Bright & Sweet suits floral light roasts and smaller cups. Classic 4-Pour is the
-            balanced reference. Slow Single Pour is built for a larger, gentler brew.
+            {t.recipes.starterGuideSub}
           </AppText>
         </View>
-      </View>
+        <AppIcon name="chevron-right" size={16} color={theme.textFaint} />
+      </Pressable>
 
       <AppText variant="caption" tone="faint" align="center" style={styles.disclaimer}>
-        {DISCLAIMERS.starterRecipes}
+        {disclaimers.starterRecipes}
       </AppText>
-
-      {recipes.length > 0 ? (
-        <Button
-          label="Create a recipe"
-          icon="add"
-          variant="secondary"
-          onPress={() => router.push('/recipes/new')}
-          style={styles.bottomButton}
-        />
-      ) : null}
     </Screen>
   );
 }
@@ -139,14 +143,16 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: Spacing.xs },
   filters: { marginTop: Spacing.xl },
   list: { gap: Spacing.sm, marginTop: Spacing.lg },
-  section: { marginTop: Spacing.xxl },
-  noteCard: {
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+  stateBox: { marginTop: Spacing.lg },
+  guideLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginTop: Spacing.xxl,
     padding: Spacing.md,
-    gap: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
   },
-  disclaimer: { marginTop: Spacing.xl },
-  bottomButton: { marginTop: Spacing.lg },
+  disclaimer: { marginTop: Spacing.lg },
   flex: { flex: 1 },
 });

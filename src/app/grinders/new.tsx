@@ -7,6 +7,7 @@ import { AppText } from '@/components/common/text';
 import { EMPTY_GRINDER_DRAFT } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useDatabase } from '@/hooks/use-database';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { createGrinder } from '@/services/grinders';
 import type { GrinderSettingUnit } from '@/types';
@@ -22,6 +23,7 @@ import { StyleSheet, View } from 'react-native';
 export default function NewGrinderScreen() {
   const theme = useTheme();
   const db = useDatabase();
+  const { lang, t } = useTranslation();
 
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('TIMEMORE');
@@ -38,14 +40,17 @@ export default function NewGrinderScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const save = async () => {
-    const errors = validateGrinder({
-      ...EMPTY_GRINDER_DRAFT,
-      name,
-      clicksPerRotation: clicksPerRotation ?? 0,
-      micronsPerClick: micronsPerClick ?? 0,
-      referenceMin,
-      referenceMax,
-    });
+    const errors = validateGrinder(
+      {
+        ...EMPTY_GRINDER_DRAFT,
+        name,
+        clicksPerRotation: clicksPerRotation ?? 0,
+        micronsPerClick: micronsPerClick ?? 0,
+        referenceMin,
+        referenceMax,
+      },
+      lang
+    );
     setFieldErrors(errors);
     if (Object.values(errors).some(Boolean)) {
       setError(Object.values(errors).filter(Boolean).join(' '));
@@ -71,22 +76,29 @@ export default function NewGrinderScreen() {
       });
       router.back();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not save the grinder.');
+      setError(caught instanceof Error ? caught.message : t.grinder.saveError);
       setSaving(false);
     }
   };
 
   return (
     <StackScreen
-      title="Add a grinder"
-      subtitle="Any hand grinder with a click or dial adjustment"
+      title={t.grinder.newTitle}
+      subtitle={t.grinder.newSubtitle}
       footer={
-        <View style={[styles.footer, { borderTopColor: theme.border }]}>
-          <Button label="Save grinder" onPress={save} loading={saving} size="lg" fullWidth />
+        <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
+          <Button
+            label={t.grinder.saveGrinder}
+            variant="accent"
+            onPress={save}
+            loading={saving}
+            size="lg"
+            fullWidth
+          />
         </View>
       }>
       {error ? (
-        <View style={[styles.banner, { backgroundColor: theme.dangerSoft }]}>
+        <View style={[styles.banner, { backgroundColor: theme.dangerSoft, borderColor: theme.danger }]}>
           <AppText variant="small" tone="danger">
             {error}
           </AppText>
@@ -94,95 +106,103 @@ export default function NewGrinderScreen() {
       ) : null}
 
       <TextField
-        label="Grinder name"
+        label={t.grinder.grinderName}
         value={name}
         onChangeText={setName}
-        placeholder="e.g. KINGrinder K6"
+        placeholder={t.grinder.grinderNamePlaceholder}
         error={fieldErrors.name}
         required
         maxLength={60}
       />
       <View style={styles.gap} />
       <TextField
-        label="Brand"
+        label={t.grinder.brand}
         value={brand}
         onChangeText={setBrand}
-        placeholder="Manufacturer"
+        placeholder={t.grinder.brandPlaceholder}
         maxLength={40}
       />
 
       <View style={styles.section}>
         <SectionHeader
-          title="Adjustment"
-          subtitle="These numbers define the click maths for this model"
+          title={t.grinder.adjustmentSection}
+          subtitle={t.grinder.adjustmentSub}
         />
         <View style={styles.row}>
           <NumberField
-            label="Clicks per rotation"
+            label={t.grinder.clicksPerRotation}
             value={clicksPerRotation}
             onChange={setClicksPerRotation}
             step={1}
             min={1}
             decimals={0}
+            stepper
             error={fieldErrors.clicksPerRotation}
             style={styles.flex}
           />
           <NumberField
-            label="Microns per click"
+            label={t.grinder.micronsPerClick}
             value={micronsPerClick}
             onChange={setMicronsPerClick}
             suffix="µm"
             step={1}
             min={1}
             decimals={0}
+            stepper
             error={fieldErrors.micronsPerClick}
             style={styles.flex}
           />
         </View>
         <View style={styles.gap} />
         <SelectField
-          label="How you enter settings"
-          value={unit === 'rotations' ? 'Dial rotations (e.g. 6.5)' : 'Clicks from zero (e.g. 20)'}
-          icon="options-outline"
+          label={t.grinder.howYouEnter}
+          value={unit === 'rotations' ? t.grinder.rotationsExample : t.grinder.clicksExample}
+          icon="sliders"
           onPress={() => setUnitSheet(true)}
         />
         <View style={styles.gap} />
         <NumberField
-          label="Macro steps per rotation"
+          label={t.grinder.macroStepsLabel}
           value={macroSteps}
           onChange={setMacroSteps}
           step={1}
           min={1}
           decimals={0}
-          placeholder="Optional"
-          hint="Only if the dial has numbered macro steps."
+          stepper
+          allowEmpty
+          placeholder={t.common.optional}
+          hint={t.grinder.macroStepsHint}
         />
       </View>
 
       <View style={styles.section}>
         <SectionHeader
-          title="Manufacturer reference"
-          subtitle="Optional. Leave empty if none is published"
+          title={t.grinder.manufacturerRef}
+          subtitle={t.grinder.manufacturerRefSub}
         />
         <View style={styles.row}>
           <NumberField
-            label="From"
+            label={t.grinder.from}
             value={referenceMin}
             onChange={setReferenceMin}
             step={0.5}
             min={0}
             decimals={2}
+            stepper
+            allowEmpty
             placeholder="–"
             error={fieldErrors.referenceRange}
             style={styles.flex}
           />
           <NumberField
-            label="To"
+            label={t.grinder.to}
             value={referenceMax}
             onChange={setReferenceMax}
             step={0.5}
             min={0}
             decimals={2}
+            stepper
+            allowEmpty
             placeholder="–"
             style={styles.flex}
           />
@@ -190,12 +210,12 @@ export default function NewGrinderScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader title="Notes" />
+        <SectionHeader title={t.grinder.notesSection} />
         <TextField
-          label="Anything worth remembering"
+          label={t.grinder.notesLabel}
           value={notes}
           onChangeText={setNotes}
-          placeholder="Zero point, alignment, quirks"
+          placeholder={t.grinder.notesPlaceholder}
           multiline
           maxLength={400}
         />
@@ -204,18 +224,18 @@ export default function NewGrinderScreen() {
       <OptionSheet
         visible={unitSheet}
         onClose={() => setUnitSheet(false)}
-        title="Setting unit"
-        subtitle="Match how you actually read the dial."
+        title={t.grinder.settingUnitSheetTitle}
+        subtitle={t.grinder.settingUnitSheetSub}
         options={[
           {
-            label: 'Dial rotations',
+            label: t.grinder.dialRotations,
             value: 'rotations',
-            detail: 'You say “6.5” and the app counts the clicks for you.',
+            detail: t.grinder.rotationsDetail,
           },
           {
-            label: 'Clicks from zero',
+            label: t.grinder.clicksFromZero,
             value: 'clicks',
-            detail: 'You count individual clicks from the closed position.',
+            detail: t.grinder.clicksDetail,
           },
         ]}
         selected={unit}
@@ -229,7 +249,12 @@ const styles = StyleSheet.create({
   section: { marginTop: Spacing.xxl },
   row: { flexDirection: 'row', gap: Spacing.md },
   gap: { height: Spacing.md },
-  banner: { padding: Spacing.md, borderRadius: Radius.md, marginBottom: Spacing.lg },
+  banner: {
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    marginBottom: Spacing.lg,
+  },
   footer: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,

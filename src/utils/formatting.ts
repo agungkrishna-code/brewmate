@@ -1,34 +1,42 @@
 /** Display formatting helpers. Locale-free so output is stable on every device. */
 
-const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
+import type { Language } from '@/i18n';
 
-const MONTHS_LONG = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
+const MONTHS: Record<Language, readonly string[]> = {
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  id: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'],
+};
+
+const MONTHS_LONG: Record<Language, readonly string[]> = {
+  en: [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ],
+  id: [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+  ],
+};
 
 function toDate(value: string | Date): Date | null {
   const date = value instanceof Date ? value : new Date(value);
@@ -62,11 +70,16 @@ export function formatDuration(seconds: number | null | undefined): string {
   return `${minutes}:${String(rest).padStart(2, '0')}`;
 }
 
-export function formatDurationLong(seconds: number | null | undefined): string {
+export function formatDurationLong(seconds: number | null | undefined, lang: Language = 'en'): string {
   if (seconds == null || !Number.isFinite(seconds)) return '–';
   const safe = Math.max(0, Math.round(seconds));
   const minutes = Math.floor(safe / 60);
   const rest = safe % 60;
+  if (lang === 'id') {
+    if (minutes === 0) return `${rest} dtk`;
+    if (rest === 0) return `${minutes} mnt`;
+    return `${minutes} mnt ${rest} dtk`;
+  }
   if (minutes === 0) return `${rest}s`;
   if (rest === 0) return `${minutes}m`;
   return `${minutes}m ${rest}s`;
@@ -80,45 +93,52 @@ export function formatStopwatch(milliseconds: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-export function formatDate(iso: string | null | undefined): string {
+export function formatDate(iso: string | null | undefined, lang: Language = 'en'): string {
   if (!iso) return '–';
   const date = toDate(iso);
   if (!date) return '–';
-  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+  return `${date.getDate()} ${MONTHS[lang][date.getMonth()]} ${date.getFullYear()}`;
 }
 
-export function formatDateShort(iso: string | null | undefined): string {
+export function formatDateShort(iso: string | null | undefined, lang: Language = 'en'): string {
   if (!iso) return '–';
   const date = toDate(iso);
   if (!date) return '–';
-  return `${date.getDate()} ${MONTHS[date.getMonth()]}`;
+  return `${date.getDate()} ${MONTHS[lang][date.getMonth()]}`;
 }
 
-export function formatDateTime(iso: string | null | undefined): string {
+export function formatDateTime(iso: string | null | undefined, lang: Language = 'en'): string {
   if (!iso) return '–';
   const date = toDate(iso);
   if (!date) return '–';
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${formatDate(iso)} · ${hours}:${minutes}`;
+  return `${formatDate(iso, lang)} · ${hours}:${minutes}`;
 }
 
-export function formatMonthYear(iso: string | null | undefined): string {
+export function formatMonthYear(iso: string | null | undefined, lang: Language = 'en'): string {
   if (!iso) return '–';
   const date = toDate(iso);
   if (!date) return '–';
-  return `${MONTHS_LONG[date.getMonth()]} ${date.getFullYear()}`;
+  return `${MONTHS_LONG[lang][date.getMonth()]} ${date.getFullYear()}`;
 }
 
-export function formatRoastDate(iso: string | null | undefined): string {
-  if (!iso) return 'Roast date not set';
+export function formatRoastDate(iso: string | null | undefined, lang: Language = 'en'): string {
+  if (!iso) return lang === 'id' ? 'Tanggal sangrai belum diisi' : 'Roast date not set';
   const date = toDate(iso);
-  if (!date) return 'Roast date not set';
+  if (!date) return lang === 'id' ? 'Tanggal sangrai belum diisi' : 'Roast date not set';
   const days = Math.floor((Date.now() - date.getTime()) / 86_400_000);
-  if (days < 0) return `${formatDate(iso)} · resting`;
-  if (days === 0) return `${formatDate(iso)} · today`;
-  if (days === 1) return `${formatDate(iso)} · 1 day ago`;
-  return `${formatDate(iso)} · ${days} days ago`;
+  const formatted = formatDate(iso, lang);
+  if (lang === 'id') {
+    if (days < 0) return `${formatted} · masih resting`;
+    if (days === 0) return `${formatted} · hari ini`;
+    if (days === 1) return `${formatted} · 1 hari lalu`;
+    return `${formatted} · ${days} hari lalu`;
+  }
+  if (days < 0) return `${formatted} · resting`;
+  if (days === 0) return `${formatted} · today`;
+  if (days === 1) return `${formatted} · 1 day ago`;
+  return `${formatted} · ${days} days ago`;
 }
 
 export function formatRating(value: number | null | undefined): string {
@@ -138,8 +158,15 @@ export function todayIsoDate(): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
-export function greeting(date = new Date()): string {
+export function greeting(date = new Date(), lang: Language = 'en'): string {
   const hour = date.getHours();
+  if (lang === 'id') {
+    if (hour < 5) return 'Seduh larut malam';
+    if (hour < 12) return 'Selamat pagi';
+    if (hour < 15) return 'Selamat siang';
+    if (hour < 18) return 'Selamat sore';
+    return 'Selamat malam';
+  }
   if (hour < 5) return 'Late night brewing';
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';

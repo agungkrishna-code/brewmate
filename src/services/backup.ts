@@ -76,6 +76,53 @@ function isBackupFile(value: unknown): value is BackupFile {
   return candidate.app === APP_TAG && typeof candidate.data === 'object' && candidate.data != null;
 }
 
+/**
+ * Child rows that belong to a parent row.
+ *
+ * `INSERT OR REPLACE` deletes the parent row first, but the restore disables
+ * foreign keys, so SQLite never runs `ON DELETE CASCADE`. Without an explicit
+ * purge the previous children (recipe steps, session steps, ratings) survive
+ * next to the restored ones and the brew shows duplicated stages.
+ */
+const OWNED_CHILD_TABLES: {
+  table: BackupTable;
+  parentTable: BackupTable;
+  parentColumn: string;
+}[] = [
+  { table: 'brew_pour_steps', parentTable: 'brew_recipes', parentColumn: 'recipe_id' },
+  { table: 'brew_session_steps', parentTable: 'brew_sessions', parentColumn: 'session_id' },
+  { table: 'brew_session_ratings', parentTable: 'brew_sessions', parentColumn: 'session_id' },
+];
+
+/** Keeps the `IN (...)` list below SQLite's bound-variable limit. */
+const PURGE_CHUNK_SIZE = 200;
+
+function idsOf(rows: unknown): string[] {
+  if (!Array.isArray(rows)) return [];
+  const ids: string[] = [];
+  for (const row of rows) {
+    if (typeof row !== 'object' || row === null) continue;
+    const id = (row as Record<string, unknown>).id;
+    if (typeof id === 'string' && id.length > 0) ids.push(id);
+  }
+  return ids;
+}
+
+async function purgeOwnedChildren(
+  db: SQLiteDatabase,
+  child: (typeof OWNED_CHILD_TABLES)[number],
+  parentIds: string[]
+): Promise<void> {
+  for (let start = 0; start < parentIds.length; start += PURGE_CHUNK_SIZE) {
+    const chunk = parentIds.slice(start, start + PURGE_CHUNK_SIZE);
+    const placeholders = chunk.map(() => '?').join(', ');
+    await db.runAsync(
+      `DELETE FROM ${child.table} WHERE ${child.parentColumn} IN (${placeholders})`,
+      chunk
+    );
+  }
+}
+
 /** Columns that really exist for a table, used to sanitise imported JSON. */
 async function tableColumns(db: SQLiteDatabase, table: BackupTable): Promise<Set<string>> {
   const rows = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
@@ -113,6 +160,17 @@ export async function importBackupJson(
       for (const table of BACKUP_TABLES) {
         const rows = parsed.data[table];
         if (!Array.isArray(rows)) continue;
+
+        // Restored parents are authoritative for their children: drop whatever
+        // the replaced parent row left behind before inserting the backup rows.
+        const owned = OWNED_CHILD_TABLES.find((entry) => entry.table === table);
+        if (owned) {
+          const parentIds = idsOf(parsed.data[owned.parentTable]);
+          if (parentIds.length > 0) {
+            await purgeOwnedChildren(db, owned, parentIds);
+          }
+        }
+
         const allowed = columnsByTable.get(table) ?? new Set<string>();
         let inserted = 0;
 

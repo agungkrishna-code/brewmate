@@ -1,9 +1,11 @@
 import { StyleSheet, View } from 'react-native';
+import { localizeStepLabel } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import type { TimelineStage } from '@/types';
 import { formatDuration, formatWeight } from '@/utils/formatting';
-import { Ionicons } from '../common/icon';
+import { AppIcon } from '../common/icon';
 import { AppText } from '../common/text';
 
 interface StageListProps {
@@ -15,39 +17,41 @@ interface StageListProps {
 
 export function StageList({ stages, activeIndex, showState }: StageListProps) {
   const theme = useTheme();
+  const { lang, t } = useTranslation();
 
   return (
-    <View style={styles.list}>
+    <View style={[styles.list, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       {stages.map((stage, index) => {
         const isActive = index === activeIndex;
         const isDone = showState && activeIndex != null && index < activeIndex;
+        const isLast = index === stages.length - 1;
+        const stageLabel = localizeStepLabel(stage.label, stage.kind, lang);
+
         return (
           <View
             key={`${stage.stepOrder}-${stage.label}`}
             style={[
               styles.row,
-              {
-                backgroundColor: isActive ? theme.primarySoft : 'transparent',
-                borderColor: isActive ? theme.borderStrong : theme.border,
+              !isLast && {
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: theme.border,
               },
+              isActive && { backgroundColor: theme.accentSoft },
             ]}>
             <View
               style={[
                 styles.index,
                 {
-                  backgroundColor: isDone
-                    ? theme.primary
-                    : isActive
-                      ? theme.gold
-                      : theme.surfaceSunken,
+                  backgroundColor: isDone || isActive ? theme.accent : theme.surfaceSunken,
                 },
               ]}>
               {isDone ? (
-                <Ionicons name="checkmark" size={12} color={theme.onPrimary} />
+                <AppIcon name="check" size={12} color={theme.onAccent} strokeWidth={2.2} />
               ) : (
                 <AppText
                   variant="caption"
-                  color={isActive ? (theme.mode === 'dark' ? '#20160F' : '#2A1E17') : theme.textMuted}
+                  tabular
+                  color={isActive ? theme.onAccent : theme.textMuted}
                   style={styles.indexLabel}>
                   {index + 1}
                 </AppText>
@@ -55,9 +59,12 @@ export function StageList({ stages, activeIndex, showState }: StageListProps) {
             </View>
 
             <View style={styles.body}>
-              <AppText variant="bodyStrong">{stage.label}</AppText>
-              <AppText variant="caption" tone="muted">
-                to {formatWeight(stage.targetWaterG, true)} · {formatDuration(stage.durationS)}
+              <AppText variant="bodyStrong">{stageLabel}</AppText>
+              <AppText variant="caption" tone="muted" tabular>
+                {t.stageList.toTarget(
+                  formatWeight(stage.targetWaterG, true),
+                  formatDuration(stage.durationS)
+                )}
               </AppText>
             </View>
 
@@ -74,20 +81,22 @@ export function StageList({ stages, activeIndex, showState }: StageListProps) {
 }
 
 const styles = StyleSheet.create({
-  list: { gap: Spacing.xs },
+  list: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
+    paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
-    borderRadius: Radius.md,
-    borderWidth: 1,
   },
   index: {
     width: 24,
     height: 24,
-    borderRadius: Radius.pill,
+    borderRadius: Radius.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },

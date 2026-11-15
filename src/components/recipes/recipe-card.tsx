@@ -1,9 +1,11 @@
 import type { BrewRecipeSummary } from '@/types';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { localizeStarterRecipe } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDuration, formatRatio, formatWeight } from '@/utils/formatting';
-import { Ionicons } from '../common/icon';
+import { AppIcon } from '../common/icon';
 import { Badge } from '../common/section';
 import { AppText } from '../common/text';
 
@@ -14,8 +16,10 @@ interface RecipeCardProps {
   compact?: boolean;
 }
 
-export function RecipeCard({ recipe, onPress, compact }: RecipeCardProps) {
+export function RecipeCard({ recipe: rawRecipe, onPress, compact }: RecipeCardProps) {
   const theme = useTheme();
+  const { lang, t } = useTranslation();
+  const recipe = localizeStarterRecipe(rawRecipe, lang);
   const totalWater = recipe.totalWaterG;
 
   if (compact) {
@@ -33,19 +37,21 @@ export function RecipeCard({ recipe, onPress, compact }: RecipeCardProps) {
           },
         ]}>
         <View style={styles.compactTop}>
-          <Badge label="Recipe" />
+          <AppText variant="caption" tone="faint" tabular>
+            {formatRatio(recipe.ratio)}
+          </AppText>
           {recipe.isFavorite ? (
-            <Ionicons name="star" size={13} color={theme.gold} />
+            <AppIcon name="star" size={13} color={theme.accent} filled />
           ) : null}
         </View>
         <AppText variant="h3" numberOfLines={2} style={styles.compactTitle}>
           {recipe.name}
         </AppText>
-        <AppText variant="caption" tone="muted">
-          {formatWeight(recipe.coffeeDoseG, true)} · {formatRatio(recipe.ratio)}
+        <AppText variant="caption" tone="muted" tabular>
+          {formatWeight(recipe.coffeeDoseG, true)} → {formatWeight(totalWater, true)}
         </AppText>
-        <AppText variant="caption" tone="faint">
-          {formatDuration(recipe.targetTimeS)} · {formatWeight(totalWater, true)} water
+        <AppText variant="caption" tone="faint" tabular>
+          {formatDuration(recipe.targetTimeS)}
         </AppText>
       </Pressable>
     );
@@ -54,7 +60,7 @@ export function RecipeCard({ recipe, onPress, compact }: RecipeCardProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${recipe.name} recipe`}
+      accessibilityLabel={t.recipes.cardA11y(recipe.name)}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
@@ -64,32 +70,33 @@ export function RecipeCard({ recipe, onPress, compact }: RecipeCardProps) {
           opacity: pressed ? 0.88 : 1,
         },
       ]}>
-      <View style={[styles.accent, { backgroundColor: recipe.isFavorite ? theme.gold : theme.primarySoft }]} />
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <AppText variant="h3" numberOfLines={1} style={styles.flex}>
             {recipe.name}
           </AppText>
-          {recipe.isStarter ? <Badge label="Starter" /> : null}
+          {recipe.isStarter ? <Badge label={t.recipes.starterBadge} /> : null}
         </View>
-        <AppText variant="caption" tone="muted" numberOfLines={2}>
-          {recipe.description ?? 'No description yet.'}
-        </AppText>
+        {recipe.description ? (
+          <AppText variant="caption" tone="muted" numberOfLines={2}>
+            {recipe.description}
+          </AppText>
+        ) : null}
         <View style={styles.metaRow}>
-          <AppText variant="caption" tone="faint">
+          <AppText variant="caption" tone="faint" tabular>
             {formatWeight(recipe.coffeeDoseG, true)} · {formatRatio(recipe.ratio)} ·{' '}
             {formatWeight(totalWater, true)}
           </AppText>
-          <AppText variant="caption" tone="faint">
+          <AppText variant="caption" tone="faint" tabular>
             {formatDuration(recipe.targetTimeS)}
           </AppText>
         </View>
       </View>
       <View style={styles.trailing}>
         {recipe.isFavorite ? (
-          <Ionicons name="star" size={14} color={theme.gold} />
+          <AppIcon name="star" size={14} color={theme.accent} filled />
         ) : (
-          <Ionicons name="chevron-forward" size={15} color={theme.textFaint} />
+          <AppIcon name="chevron-right" size={16} color={theme.textFaint} />
         )}
       </View>
     </Pressable>
@@ -99,13 +106,14 @@ export function RecipeCard({ recipe, onPress, compact }: RecipeCardProps) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    borderRadius: Radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-    alignItems: 'stretch',
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.md,
   },
-  accent: { width: 4 },
-  body: { flex: 1, padding: Spacing.md, gap: 4 },
+  body: { flex: 1, gap: 4 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   metaRow: {
     flexDirection: 'row',
@@ -113,19 +121,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 2,
   },
-  trailing: { paddingRight: Spacing.md, justifyContent: 'center' },
+  trailing: { justifyContent: 'center' },
   compact: {
-    width: 172,
-    borderRadius: Radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
+    width: 168,
+    borderRadius: Radius.md,
+    borderWidth: 1,
     padding: Spacing.md,
-    gap: 3,
+    gap: 4,
   },
   compactTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.xs,
+    marginBottom: 2,
   },
   compactTitle: { fontSize: 15, lineHeight: 20 },
   flex: { flex: 1 },

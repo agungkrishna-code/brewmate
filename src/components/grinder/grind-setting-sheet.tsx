@@ -2,10 +2,12 @@ import { NumberField, SelectField, TextField } from '@/components/common/field';
 import { BottomSheet } from '@/components/common/sheet';
 import { AppText } from '@/components/common/text';
 import { Button } from '@/components/common/button';
-import { Ionicons } from '@/components/common/icon';
+import { AppIcon } from '@/components/common/icon';
+import { localizeProcessMethod, localizeRoastLevel } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useSettings } from '@/contexts/settings-context';
 import { useDatabase } from '@/hooks/use-database';
+import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { saveGrindSetting } from '@/services/grinders';
 import type { BrewRecipeSummary, CoffeeBeanWithStats, GrinderProfile } from '@/types';
@@ -28,8 +30,6 @@ interface GrindSettingSheetProps {
 type PickerMode = 'grinder' | 'bean' | 'recipe' | null;
 
 export function GrindSettingSheet(props: GrindSettingSheetProps) {
-  // Mounting only while open lets the form start from fresh initial values
-  // without an effect that writes state.
   if (!props.visible) return null;
   return <GrindSettingSheetBody {...props} />;
 }
@@ -46,6 +46,7 @@ function GrindSettingSheetBody({
 }: GrindSettingSheetProps) {
   const theme = useTheme();
   const db = useDatabase();
+  const { lang, t } = useTranslation();
   const { preferences, setLastGrinderId } = useSettings();
 
   const initialGrinder =
@@ -68,11 +69,11 @@ function GrindSettingSheetBody({
 
   const save = async () => {
     if (!grinder) {
-      setError('Choose a grinder first.');
+      setError(t.grinder.sheetChooseGrinderErr);
       return;
     }
     if (setting == null || setting <= 0) {
-      setError('Enter the setting you used on the grinder.');
+      setError(t.grinder.sheetEnterSettingErr);
       return;
     }
     setSaving(true);
@@ -90,7 +91,7 @@ function GrindSettingSheetBody({
       onSaved();
       onClose();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not save the setting.');
+      setError(caught instanceof Error ? caught.message : t.grinder.sheetSaveErr);
     } finally {
       setSaving(false);
     }
@@ -101,20 +102,25 @@ function GrindSettingSheetBody({
       ? grinders.map((item) => ({
           label: item.name,
           value: item.id,
-          detail: `${item.clicksPerRotation} clicks/rotation`,
+          detail: t.brew.clicksPerRotation(item.clicksPerRotation),
         }))
       : picker === 'bean'
         ? [
-            { label: 'No coffee', value: 'none', detail: 'Keep it generic' },
+            { label: t.grinder.noCoffee, value: 'none', detail: t.grinder.noCoffeeDetail },
             ...beans.map((item) => ({
               label: item.name,
               value: item.id,
-              detail: [item.process, item.roastLevel].filter(Boolean).join(' · '),
+              detail: [
+                localizeProcessMethod(item.process, lang),
+                localizeRoastLevel(item.roastLevel, lang),
+              ]
+                .filter(Boolean)
+                .join(' · '),
             })),
           ]
         : picker === 'recipe'
           ? [
-              { label: 'No recipe', value: 'none' },
+              { label: t.grinder.noRecipe, value: 'none' },
               ...recipes.map((item) => ({
                 label: item.name,
                 value: item.id,
@@ -135,21 +141,19 @@ function GrindSettingSheetBody({
 
   const currentValue =
     picker === 'grinder' ? grinderId : picker === 'bean' ? (beanId ?? 'none') : (recipeId ?? 'none');
+  const publishedRef = grinder ? referenceRangeLabel(grinder, lang) : null;
 
   return (
     <BottomSheet
       visible={visible}
       onClose={onClose}
-      title={picker ? 'Choose' : 'Save a grind setting'}
-      subtitle={
-        picker
-          ? undefined
-          : 'Record what worked for a coffee, with no conversion between models.'
-      }
+      title={picker ? t.grinder.sheetChooseTitle : t.grinder.sheetTitle}
+      subtitle={picker ? undefined : t.grinder.sheetSub}
       footer={
         picker ? undefined : (
           <Button
-            label="Save setting"
+            label={t.grinder.sheetSaveBtn}
+            variant="accent"
             onPress={save}
             loading={saving}
             size="lg"
@@ -161,17 +165,18 @@ function GrindSettingSheetBody({
         <View style={styles.optionList}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Back to the form"
+            accessibilityLabel={t.common.back}
+            hitSlop={6}
             onPress={() => setPicker(null)}
             style={({ pressed }) => [styles.backRow, { opacity: pressed ? 0.6 : 1 }]}>
-            <Ionicons name="chevron-back" size={16} color={theme.textMuted} />
+            <AppIcon name="chevron-left" size={16} color={theme.textMuted} />
             <AppText variant="small" tone="muted">
-              Back
+              {t.common.back}
             </AppText>
           </Pressable>
           {options.length === 0 ? (
             <AppText variant="small" tone="muted">
-              Nothing to choose yet.
+              {t.grinder.nothingToChoose}
             </AppText>
           ) : null}
           {options.map((option) => {
@@ -185,9 +190,9 @@ function GrindSettingSheetBody({
                 style={({ pressed }) => [
                   styles.option,
                   {
-                    backgroundColor: selected ? theme.primarySoft : theme.surface,
-                    borderColor: selected ? theme.borderStrong : theme.border,
-                    opacity: pressed ? 0.7 : 1,
+                    backgroundColor: selected ? theme.accentSoft : theme.surface,
+                    borderColor: selected ? theme.accent : theme.border,
+                    opacity: pressed ? 0.72 : 1,
                   },
                 ]}>
                 <View style={styles.flex}>
@@ -199,7 +204,7 @@ function GrindSettingSheetBody({
                   ) : null}
                 </View>
                 {selected ? (
-                  <Ionicons name="checkmark-circle" size={18} color={theme.gold} />
+                  <AppIcon name="check" size={18} color={theme.accent} />
                 ) : null}
               </Pressable>
             );
@@ -208,27 +213,26 @@ function GrindSettingSheetBody({
       ) : (
         <View style={styles.form}>
           <SelectField
-            label="Grinder"
-            value={grinder?.name ?? 'Choose a grinder'}
-            icon="disc-outline"
+            label={t.journal.grinder}
+            value={grinder?.name ?? t.grinder.chooseGrinder}
+            icon="disc"
             disabled={Boolean(fixedGrinderId)}
             onPress={() => setPicker('grinder')}
           />
           <NumberField
-            label="Grind setting"
+            label={t.brew.grindSetting}
             value={setting}
             onChange={setSetting}
-            suffix={grinder ? unitLabel(grinder, setting) : undefined}
+            suffix={grinder ? unitLabel(grinder, setting, lang) : undefined}
             step={0.5}
             decimals={2}
-            placeholder="e.g. 6.5"
+            stepper
+            placeholder={t.brew.grindPlaceholder}
             hint={
               grinder
                 ? [
-                    setting != null ? settingDetail(grinder, setting) : null,
-                    referenceRangeLabel(grinder)
-                      ? `Published: ${referenceRangeLabel(grinder)}`
-                      : null,
+                    setting != null ? settingDetail(grinder, setting, lang) : null,
+                    publishedRef ? t.grinder.publishedPrefix(publishedRef) : null,
                   ]
                     .filter(Boolean)
                     .join(' · ')
@@ -236,22 +240,22 @@ function GrindSettingSheetBody({
             }
           />
           <SelectField
-            label="Coffee"
-            value={bean?.name ?? 'No coffee'}
-            icon="cafe-outline"
+            label={t.journal.coffee}
+            value={bean?.name ?? t.grinder.noCoffee}
+            icon="coffee"
             onPress={() => setPicker('bean')}
           />
           <SelectField
-            label="Recipe"
-            value={recipe?.name ?? 'No recipe'}
-            icon="book-outline"
+            label={t.tabs.recipes}
+            value={recipe?.name ?? t.grinder.noRecipe}
+            icon="book-open"
             onPress={() => setPicker('recipe')}
           />
           <TextField
-            label="Notes"
+            label={t.journal.notes}
             value={notes}
             onChangeText={setNotes}
-            placeholder="e.g. 2 clicks coarser than last time"
+            placeholder={t.grinder.sheetNotesPlaceholder}
             multiline
             maxLength={300}
           />
@@ -272,13 +276,15 @@ const styles = StyleSheet.create({
   backRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 4,
+    minHeight: 36,
     paddingBottom: Spacing.xs,
   },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+    minHeight: 52,
     padding: Spacing.md,
     borderRadius: Radius.md,
     borderWidth: 1,
