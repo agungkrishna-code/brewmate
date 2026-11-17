@@ -183,7 +183,7 @@ export function localizeStepLabel(label: string, kind: StepKind, lang: Language)
 export const MAX_POUR_STAGES = 6;
 
 export const APP_NAME = 'Brewmate';
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.3.0';
 
 export const DISCLAIMERS = {
   starterRecipes:

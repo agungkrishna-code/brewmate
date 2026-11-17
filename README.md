@@ -8,8 +8,8 @@ and remembers how the cup actually tasted. It also carries an offline brew guide
 with the reasoning behind the numbers. Everything lives in a local SQLite
 database — no account, no network, no tracking.
 
-**Current release:** [v1.2.0](https://github.com/agungkrishna-code/brewmate/releases/tag/v1.2.0)
-· [Download the APK](https://github.com/agungkrishna-code/brewmate/releases/download/v1.2.0/Brewmate-1.2.0.apk)
+**Current release:** [v1.3.0](https://github.com/agungkrishna-code/brewmate/releases/tag/v1.3.0)
+· [Download the APK](https://github.com/agungkrishna-code/brewmate/releases/download/v1.3.0/Brewmate-1.3.0.apk)
 
 ---
 
