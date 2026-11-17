@@ -1,5 +1,6 @@
 import type { BrewRecipeSummary } from '@/types';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useHaptics } from '@/hooks/use-haptics';
 import { localizeStarterRecipe } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTranslation } from '@/hooks/use-language';
@@ -18,6 +19,7 @@ interface RecipeCardProps {
 
 export function RecipeCard({ recipe: rawRecipe, onPress, compact }: RecipeCardProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const recipe = localizeStarterRecipe(rawRecipe, lang);
   const totalWater = recipe.totalWaterG;
@@ -28,6 +30,7 @@ export function RecipeCard({ recipe: rawRecipe, onPress, compact }: RecipeCardPr
         accessibilityRole="button"
         accessibilityLabel={recipe.name}
         onPress={onPress}
+        onPressIn={() => haptics.fire('selection')}
         style={({ pressed }) => [
           styles.compact,
           {
@@ -62,6 +65,7 @@ export function RecipeCard({ recipe: rawRecipe, onPress, compact }: RecipeCardPr
       accessibilityRole="button"
       accessibilityLabel={t.recipes.cardA11y(recipe.name)}
       onPress={onPress}
+      onPressIn={() => haptics.fire('selection')}
       style={({ pressed }) => [
         styles.card,
         {

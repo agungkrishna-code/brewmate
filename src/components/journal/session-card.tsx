@@ -1,6 +1,7 @@
 import type { BrewSessionDetail } from '@/types';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Radius, Spacing } from '@/constants/theme';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate, formatDuration, formatRatio, formatRating, formatWeight } from '@/utils/formatting';
@@ -16,6 +17,7 @@ interface SessionCardProps {
 
 export function SessionCard({ session, onPress, selected, selectionMode }: SessionCardProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const title = session.beanNameSnapshot ?? session.recipeNameSnapshot ?? t.journal.defaultSessionTitle;
 
@@ -24,6 +26,7 @@ export function SessionCard({ session, onPress, selected, selectionMode }: Sessi
       accessibilityRole="button"
       accessibilityLabel={t.journal.cardA11y(title, formatDate(session.brewedAt, lang))}
       onPress={onPress}
+      onPressIn={() => haptics.fire('selection')}
       style={({ pressed }) => [
         styles.card,
         {

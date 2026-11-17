@@ -8,6 +8,7 @@ import { RecipeCard } from '@/components/recipes/recipe-card';
 import { getDisclaimers } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useFocusedQuery } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { listRecipeSummaries } from '@/services/recipes';
@@ -19,6 +20,7 @@ type Filter = 'all' | 'favorites' | 'starters';
 
 export default function RecipesScreen() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const disclaimers = getDisclaimers(lang);
   const [filter, setFilter] = useState<Filter>('all');
@@ -108,6 +110,7 @@ export default function RecipesScreen() {
         accessibilityRole="button"
         accessibilityLabel={t.recipes.starterGuideA11y}
         onPress={() => router.push('/guide/v60-basics')}
+        onPressIn={() => haptics.fire('selection')}
         style={({ pressed }) => [
           styles.guideLink,
           {

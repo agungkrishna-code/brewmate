@@ -10,6 +10,7 @@ import { GrindSettingSheet } from '@/components/grinder/grind-setting-sheet';
 import { getDisclaimers } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useDatabase, useFocusedQuery } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { listBeans } from '@/services/beans';
@@ -22,6 +23,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 export default function GrinderScreen() {
   const db = useDatabase();
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const disclaimers = getDisclaimers(lang);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -54,6 +56,9 @@ export default function GrinderScreen() {
         text: t.common.delete,
         style: 'destructive',
         onPress: async () => {
+          // Confirmation of a destructive action: the delete only lands
+          // here, after the user has confirmed the alert.
+          haptics.fire('heavy');
           await deleteGrindSetting(db, id);
           reload();
         },
@@ -134,6 +139,7 @@ export default function GrinderScreen() {
         accessibilityRole="button"
         accessibilityLabel={t.grinder.guideA11y}
         onPress={() => router.push('/guide/grinder-calibration')}
+        onPressIn={() => haptics.fire('selection')}
         style={({ pressed }) => [
           styles.guideLink,
           {

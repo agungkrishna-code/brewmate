@@ -3,6 +3,7 @@ import { useBrewDraft } from '@/contexts/brew-draft-context';
 import { useSettings } from '@/contexts/settings-context';
 import { useDatabase, useQuery } from '@/hooks/use-database';
 import { useBrewingTimer } from '@/hooks/use-brewing-timer';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { buildTimeline } from '@/services/brewing/timeline';
@@ -89,6 +90,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
   const insets = useSafeAreaInsets();
   const db = useDatabase();
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const { preferences, setLastGrinderId } = useSettings();
   const hapticsEnabled = preferences.haptics;
@@ -147,17 +149,20 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
       timer.isFinished ? t.timer.discardMsg : t.timer.leaveMsg,
       [
         { text: t.timer.keepBrewing, style: 'cancel' },
-        {
+          {
           text: t.timer.leave,
           style: 'destructive',
           onPress: () => {
+            // The React Native alert already gives a confirmed tap; this is
+            // the moment the brew is actually thrown away.
+            haptics.fire('heavy');
             onLeave();
             router.back();
           },
         },
       ]
     );
-  }, [onLeave, t, timer.isFinished, timer.status]);
+  }, [haptics, onLeave, t, timer.isFinished, timer.status]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -191,10 +196,13 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
       if (grinderId) {
         await setLastGrinderId(grinderId);
       }
+      // Success lands with the save, not with the tap that opened the sheet.
+      haptics.success();
       setSheetOpen(false);
       onLeave();
       router.replace(`/journal/${id}`);
     } catch (caught) {
+      haptics.error();
       Alert.alert(
         t.timer.saveErrorTitle,
         caught instanceof Error ? caught.message : t.timer.tryAgain
@@ -208,6 +216,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
     draft,
     grinderId,
     grindSetting,
+    haptics,
     notes,
     onLeave,
     ratings,
@@ -246,6 +255,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
           accessibilityLabel={t.timer.leaveA11y}
           hitSlop={6}
           onPress={exit}
+          onPressIn={() => haptics.fire('selection')}
           style={({ pressed }) => [styles.headerButton, { opacity: pressed ? 0.6 : 1 }]}>
           <AppIcon name="chevron-down" size={22} color={BrandSurface.muted} />
         </Pressable>
@@ -264,6 +274,9 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
           disabled={timer.status === 'idle'}
           hitSlop={6}
           onPress={timer.reset}
+          onPressIn={() => {
+            if (timer.status !== 'idle') haptics.fire('heavy');
+          }}
           style={({ pressed }) => [
             styles.headerButton,
             { opacity: timer.status === 'idle' ? 0.35 : pressed ? 0.6 : 1 },
@@ -397,11 +410,13 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
               size="lg"
               fullWidth
               onPress={() => setSheetOpen(true)}
+              haptic="none"
             />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t.timer.discardBrewA11y}
               onPress={exit}
+              onPressIn={() => haptics.fire('heavy')}
               style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.65 : 1 }]}>
               <AppText variant="small" color={BrandSurface.muted}>
                 {t.timer.discardBrew}
@@ -423,6 +438,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
               size="lg"
               fullWidth
               onPress={timer.status === 'idle' ? timer.start : timer.toggle}
+              haptic="medium"
             />
             <View style={styles.secondaryRow}>
               <Button
@@ -431,6 +447,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
                 variant="inverseSecondary"
                 disabled={timer.status === 'idle'}
                 onPress={timer.skipStage}
+                haptic="medium"
                 style={styles.flex}
               />
               <Button
@@ -439,6 +456,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
                 variant="inverseSecondary"
                 disabled={timer.status === 'idle'}
                 onPress={timer.reset}
+                haptic="heavy"
                 style={styles.flex}
               />
             </View>
@@ -447,6 +465,8 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
                 accessibilityRole="button"
                 accessibilityLabel={t.timer.finishEarlyA11y}
                 onPress={timer.finish}
+                // `finish` fires the completion pulse itself, so the touch
+                // stays quiet instead of buzzing twice.
                 style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.65 : 1 }]}>
                 <AppText variant="small" color={BrandSurface.muted}>
                   {t.timer.finishEarly}
@@ -474,6 +494,8 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
               loading={saving}
               size="lg"
               fullWidth
+              // Save success/error feedback comes from saveSession itself.
+              haptic="none"
             />
           ) : undefined
         }>
@@ -534,6 +556,7 @@ function BrewingTimer({ draft, onLeave }: { draft: BrewDraft; onLeave: () => voi
               accessibilityLabel={t.common.back}
               hitSlop={6}
               onPress={() => setPicker(null)}
+              onPressIn={() => haptics.fire('selection')}
               style={({ pressed }) => [styles.pickerBack, { opacity: pressed ? 0.6 : 1 }]}>
               <AppIcon name="chevron-left" size={16} color={theme.textMuted} />
               <AppText variant="small" tone="muted">
@@ -615,12 +638,14 @@ function PickerOption({
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const haptics = useHaptics();
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
+      onPressIn={() => haptics.fire('selection')}
       style={({ pressed }) => [
         styles.pickerOption,
         {

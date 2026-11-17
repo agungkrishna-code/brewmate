@@ -9,6 +9,7 @@ import { APP_VERSION, getDisclaimers } from '@/constants/defaults';
 import { Radius, Spacing, type ThemePreference } from '@/constants/theme';
 import { useSettings } from '@/contexts/settings-context';
 import { useDatabase, useFocusedQuery } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import type { LanguagePreference } from '@/i18n';
@@ -20,6 +21,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 export default function SettingsScreen() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const db = useDatabase();
   const { lang, t } = useTranslation();
   const disclaimers = getDisclaimers(lang);
@@ -55,6 +57,7 @@ export default function SettingsScreen() {
     try {
       await shareBackup(db);
     } catch (caught) {
+      haptics.error();
       Alert.alert(
         t.settings.exportFailedTitle,
         caught instanceof Error ? caught.message : t.settings.exportFailedMsg
@@ -77,8 +80,10 @@ export default function SettingsScreen() {
       const summary = await importBackupJson(db, json);
       await reloadSettings();
       reload();
+      haptics.success();
       Alert.alert(t.settings.restoreSuccessTitle, t.settings.restoreSuccessMsg(summary.total));
     } catch (caught) {
+      haptics.error();
       Alert.alert(
         t.settings.importFailedTitle,
         caught instanceof Error ? caught.message : t.settings.importFailedMsg
@@ -145,6 +150,7 @@ export default function SettingsScreen() {
           accessibilityRole="button"
           accessibilityLabel={t.settings.manageCoffeesA11y}
           onPress={() => router.push('/beans')}
+          onPressIn={() => haptics.fire('selection')}
           style={({ pressed }) => [
             styles.linkRow,
             {
@@ -206,6 +212,9 @@ export default function SettingsScreen() {
           variant="secondary"
           onPress={exportData}
           loading={busy === 'export'}
+          // Errors buzz from the handler; a successful share sheet open is
+          // its own confirmation, so no success pulse is fired here.
+          haptic="none"
           style={styles.action}
           fullWidth
         />
@@ -215,6 +224,8 @@ export default function SettingsScreen() {
           variant="secondary"
           onPress={importData}
           loading={busy === 'import'}
+          // Result feedback comes from the import handler.
+          haptic="none"
           style={styles.action}
           fullWidth
         />
@@ -256,12 +267,14 @@ function GuideLink({
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const haptics = useHaptics();
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
       onPress={onPress}
+      onPressIn={() => haptics.fire('selection')}
       style={({ pressed }) => [styles.guideRow, { opacity: pressed ? 0.65 : 1 }]}>
       <AppIcon name={icon} size={18} color={theme.textMuted} />
       <View style={styles.flex}>

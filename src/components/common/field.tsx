@@ -9,6 +9,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { useHaptics } from '@/hooks/use-haptics';
 import { FontFamily, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
@@ -180,6 +181,7 @@ export function NumberField({
 }: NumberFieldProps) {
   const theme = useTheme();
   const { t } = useTranslation();
+  const haptics = useHaptics();
   const [text, setText] = useState(() => formatNumeric(value, decimals));
   const [focused, setFocused] = useState(false);
   const focusedRef = useRef(false);
@@ -252,6 +254,9 @@ export function NumberField({
             accessibilityRole="button"
             accessibilityLabel={t.common.decrease(label ?? '')}
             onPress={() => nudge(-1)}
+            // Steppers are tapped in bursts; the frequent-tick effect stays
+            // soft enough that dose adjustments never feel percussive.
+            onPressIn={() => haptics.tick()}
             style={({ pressed }) => [
               styles.dockedBtn,
               {
@@ -299,6 +304,7 @@ export function NumberField({
             accessibilityRole="button"
             accessibilityLabel={t.common.increase(label ?? '')}
             onPress={() => nudge(1)}
+            onPressIn={() => haptics.tick()}
             style={({ pressed }) => [
               styles.dockedBtn,
               styles.dockedBtnRight,
@@ -339,6 +345,7 @@ export function SelectField({
   style,
 }: SelectFieldProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { t } = useTranslation();
   const resolvedPlaceholder = placeholder ?? t.common.selectPlaceholder;
 
@@ -350,6 +357,9 @@ export function SelectField({
         accessibilityState={{ disabled: Boolean(disabled) }}
         disabled={disabled}
         onPress={onPress}
+        onPressIn={() => {
+          if (!disabled) haptics.fire('light');
+        }}
         style={({ pressed }) => [
           styles.inputShell,
           {
@@ -390,13 +400,20 @@ export function SwitchRow({
   icon,
 }: SwitchRowProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const sub = hint ?? description;
+  const toggle = () => {
+    // Fire on press-in so the cue lands with the touch, not after the
+    // state has already flipped.
+    haptics.fire('light');
+    onValueChange(!value);
+  };
   return (
     <Pressable
       accessibilityRole="switch"
       accessibilityState={{ checked: value }}
       accessibilityLabel={label}
-      onPress={() => onValueChange(!value)}
+      onPress={toggle}
       style={styles.switchRow}>
       {icon ? (
         <View style={[styles.switchIcon, { backgroundColor: theme.surfaceSunken }]}>

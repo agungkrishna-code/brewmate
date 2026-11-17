@@ -7,6 +7,7 @@ import { StackScreen } from '@/components/common/screen';
 import { AppText } from '@/components/common/text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useFocusedQuery } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { listBeans } from '@/services/beans';
@@ -16,6 +17,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 export default function BeansScreen() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { t } = useTranslation();
   const [showArchived, setShowArchived] = useState(false);
   const { data, loading, error, reload } = useFocusedQuery(async (db) =>
@@ -100,6 +102,7 @@ export default function BeansScreen() {
         accessibilityRole="button"
         accessibilityLabel={t.beans.guideA11y}
         onPress={() => router.push('/guide/beans-and-freshness')}
+        onPressIn={() => haptics.fire('selection')}
         style={({ pressed }) => [
           styles.guideLink,
           {

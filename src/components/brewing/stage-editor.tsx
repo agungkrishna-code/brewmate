@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { MAX_POUR_STAGES } from '@/constants/defaults';
 import { FontFamily, Radius, Spacing, TouchTarget } from '@/constants/theme';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import type { BrewPlan } from '@/hooks/use-brew-plan';
@@ -30,13 +31,18 @@ function MiniStepper({
   max,
 }: MiniStepperProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { t } = useTranslation();
   const factor = 10 ** decimals;
 
   const nudge = (direction: 1 | -1) => {
     const next = Math.round((value + direction * step) * factor) / factor;
     const bounded = max != null ? Math.min(max, next) : next;
-    onChange(Math.max(min, bounded));
+    const clamped = Math.max(min, bounded);
+    // Buzz even when the value is already clamped: the user asked for a
+    // change and silence would read as a dead button.
+    haptics.tick();
+    onChange(clamped);
   };
 
   const display = Number.isInteger(value) ? String(value) : value.toFixed(decimals);
@@ -103,6 +109,7 @@ interface StageEditorProps {
 
 export function StageEditor({ plan, compact }: StageEditorProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const secSuffix = lang === 'id' ? 'dtk' : 's';
 
@@ -180,6 +187,9 @@ export function StageEditor({ plan, compact }: StageEditorProps) {
                   accessibilityLabel={t.stageEditor.removeStage(pour.label)}
                   hitSlop={6}
                   onPress={() => plan.removePour(index)}
+                  // Removing a pour rewrites the whole schedule; a heavier
+                  // pulse matches the weight of the action.
+                  onPressIn={() => haptics.fire('heavy')}
                   style={({ pressed }) => [styles.removeButton, { opacity: pressed ? 0.55 : 1 }]}>
                   <AppIcon name="close" size={16} color={theme.textFaint} />
                 </Pressable>
@@ -218,6 +228,9 @@ export function StageEditor({ plan, compact }: StageEditorProps) {
         accessibilityState={{ disabled: plan.pours.length >= MAX_POUR_STAGES }}
         disabled={plan.pours.length >= MAX_POUR_STAGES}
         onPress={plan.addPour}
+        onPressIn={() => {
+          if (plan.pours.length < MAX_POUR_STAGES) haptics.fire('medium');
+        }}
         style={({ pressed }) => [
           styles.addRow,
           {
@@ -251,7 +264,10 @@ export function StageEditor({ plan, compact }: StageEditorProps) {
           <Switch
             accessibilityLabel={t.stageEditor.drawdownSwitchA11y}
             value={plan.drawdownEnabled}
-            onValueChange={plan.setDrawdownEnabled}
+            onValueChange={(next) => {
+              haptics.fire('light');
+              plan.setDrawdownEnabled(next);
+            }}
             trackColor={{ false: theme.borderStrong, true: theme.accent }}
             thumbColor={theme.switchThumb}
           />

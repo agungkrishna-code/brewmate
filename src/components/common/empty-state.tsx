@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Radius, Spacing } from '@/constants/theme';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { Button, type ButtonVariant } from './button';
@@ -26,6 +27,7 @@ export function EmptyState({
   compact,
 }: EmptyStateProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
 
   if (compact) {
     return (
@@ -49,6 +51,7 @@ export function EmptyState({
             accessibilityLabel={actionLabel}
             hitSlop={8}
             onPress={onAction}
+            onPressIn={() => haptics.fire('light')}
             style={({ pressed }) => [styles.compactAction, { opacity: pressed ? 0.65 : 1 }]}>
             <AppText variant="small" tone="accent">
               {actionLabel}

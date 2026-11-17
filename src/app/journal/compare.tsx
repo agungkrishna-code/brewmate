@@ -8,6 +8,7 @@ import { AppText } from '@/components/common/text';
 import { getRatingCategories } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useFocusedQuery } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { listGrinders } from '@/services/grinders';
@@ -30,6 +31,7 @@ type Slot = 'a' | 'b';
 
 export default function CompareScreen() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const ratingCategories = getRatingCategories(lang);
   const { data, loading, error, reload } = useFocusedQuery(async (db) => {
@@ -64,6 +66,7 @@ export default function CompareScreen() {
       accessibilityRole="button"
       accessibilityLabel={t.journal.chooseBrewA11y(slot.toUpperCase())}
       onPress={() => setPicker(slot)}
+      onPressIn={() => haptics.fire('selection')}
       style={({ pressed }) => [
         styles.slot,
         {
@@ -341,6 +344,7 @@ export default function CompareScreen() {
                   else setPickedB(session.id);
                   setPicker(null);
                 }}
+                onPressIn={() => haptics.fire('selection')}
                 style={({ pressed }) => [
                   styles.option,
                   {

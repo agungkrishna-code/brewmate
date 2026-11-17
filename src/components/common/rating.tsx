@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Radius, Spacing } from '@/constants/theme';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { AppIcon } from './icon';
@@ -22,6 +23,7 @@ export function StarRating({
   label,
 }: StarRatingProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { t } = useTranslation();
   const interactive = Boolean(onChange);
 
@@ -51,6 +53,7 @@ export function StarRating({
               if (clearable && value === star) onChange?.(0);
               else onChange?.(star);
             }}
+            onPressIn={() => haptics.fire('selection')}
             style={({ pressed }) => [
               styles.starTarget,
               { opacity: pressed ? 0.6 : 1 },

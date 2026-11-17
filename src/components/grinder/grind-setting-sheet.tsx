@@ -7,6 +7,7 @@ import { localizeProcessMethod, localizeRoastLevel } from '@/constants/defaults'
 import { Radius, Spacing } from '@/constants/theme';
 import { useSettings } from '@/contexts/settings-context';
 import { useDatabase } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { saveGrindSetting } from '@/services/grinders';
@@ -45,6 +46,7 @@ function GrindSettingSheetBody({
   initialBeanId,
 }: GrindSettingSheetProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const db = useDatabase();
   const { lang, t } = useTranslation();
   const { preferences, setLastGrinderId } = useSettings();
@@ -69,10 +71,12 @@ function GrindSettingSheetBody({
 
   const save = async () => {
     if (!grinder) {
+      haptics.error();
       setError(t.grinder.sheetChooseGrinderErr);
       return;
     }
     if (setting == null || setting <= 0) {
+      haptics.error();
       setError(t.grinder.sheetEnterSettingErr);
       return;
     }
@@ -88,9 +92,12 @@ function GrindSettingSheetBody({
         notes: notes || null,
       });
       await setLastGrinderId(grinder.id);
+      // Saved: confirm with the success pulse, not the button tap.
+      haptics.success();
       onSaved();
       onClose();
     } catch (caught) {
+      haptics.error();
       setError(caught instanceof Error ? caught.message : t.grinder.sheetSaveErr);
     } finally {
       setSaving(false);
@@ -158,6 +165,8 @@ function GrindSettingSheetBody({
             loading={saving}
             size="lg"
             fullWidth
+            // Result feedback (success/error) comes from the save handler.
+            haptic="none"
           />
         )
       }>
@@ -168,6 +177,7 @@ function GrindSettingSheetBody({
             accessibilityLabel={t.common.back}
             hitSlop={6}
             onPress={() => setPicker(null)}
+            onPressIn={() => haptics.fire('selection')}
             style={({ pressed }) => [styles.backRow, { opacity: pressed ? 0.6 : 1 }]}>
             <AppIcon name="chevron-left" size={16} color={theme.textMuted} />
             <AppText variant="small" tone="muted">
@@ -187,6 +197,7 @@ function GrindSettingSheetBody({
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
                 onPress={() => pick(option.value)}
+                onPressIn={() => haptics.fire('selection')}
                 style={({ pressed }) => [
                   styles.option,
                   {

@@ -1,5 +1,6 @@
 import { AppIcon } from '@/components/common/icon';
 import { FontFamily } from '@/constants/theme';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { Tabs } from 'expo-router';
@@ -8,11 +9,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   return (
     <Tabs
+      screenListeners={{
+        // Selection tick on tab switches, matching the other navigation taps.
+        tabPress: () => haptics.fire('selection'),
+      }}
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: theme.bg },

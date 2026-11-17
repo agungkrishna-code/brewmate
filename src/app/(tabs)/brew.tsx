@@ -15,6 +15,7 @@ import { useBrewDraft } from '@/contexts/brew-draft-context';
 import { useSettings } from '@/contexts/settings-context';
 import { useFocusedQuery } from '@/hooks/use-database';
 import { useBrewPlan } from '@/hooks/use-brew-plan';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { listGrinders } from '@/services/grinders';
@@ -37,6 +38,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 export default function BrewScreen() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const plan = useBrewPlan();
   const { beginBrew } = useBrewDraft();
@@ -90,6 +92,7 @@ export default function BrewScreen() {
       )
     ).find(Boolean);
     if (blocking) {
+      haptics.warning();
       Alert.alert(t.brew.checkPlanTitle, blocking);
       return;
     }
@@ -170,6 +173,7 @@ export default function BrewScreen() {
               plan.reset();
               setGrindSetting(null);
             }}
+            haptic="heavy"
           />
           <IconButton
             icon="book"
@@ -270,6 +274,7 @@ export default function BrewScreen() {
               accessibilityLabel={t.brew.clearGrindA11y}
               hitSlop={8}
               onPress={() => setGrindSetting(null)}
+              onPressIn={() => haptics.fire('light')}
               style={({ pressed }) => [styles.clearButton, { opacity: pressed ? 0.6 : 1 }]}>
               <AppIcon name="x-circle" size={14} color={theme.accent} />
               <AppText variant="caption" tone="accent">
@@ -284,6 +289,7 @@ export default function BrewScreen() {
         accessibilityRole="button"
         accessibilityLabel={t.brew.guideA11y}
         onPress={() => router.push('/guide/water-and-ratio')}
+        onPressIn={() => haptics.fire('selection')}
         style={({ pressed }) => [
           styles.guideLink,
           {

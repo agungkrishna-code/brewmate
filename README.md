@@ -28,9 +28,11 @@ always adds up: the final stage lands exactly on the total, to 0.1 g.
 ring, the current stage, the cumulative scale target, the instruction for that
 stage and a preview of the next pour. Pause, resume, skip a stage, reset. Elapsed
 time is derived from wall-clock timestamps, so backgrounding the app or a slow JS
-thread never drifts the timer. The screen stays awake while brewing and a light
-haptic fires on each stage change. At the end you can log the brew with ratings
-and notes.
+thread never drifts the timer. The screen stays awake while brewing, and every
+control answers with a semantic haptic: start/pause and skip carry a firmer
+pulse, reset lands heavier, a distinct cue marks each stage change, and a single
+success pulse closes the brew. At the end you can log the brew with ratings and
+notes.
 
 **Recipes** — create, edit, duplicate, delete, favourite. Each recipe stores
 dose, ratio, temperature, grinder, grind setting, bloom, the full pour schedule,
@@ -57,10 +59,10 @@ Each article is written for the one-cup workflow the app supports and lists its
 own sources.
 
 **Settings** — System / Light / Dark appearance, System / English / Indonesia
-language selector (follows the device locale when set to System), haptics,
-keep-awake, a compact library strip (coffees, recipes, brews), JSON export and
-restore, plus a **Learn** section that opens the guide and two troubleshooting
-articles.
+language selector (follows the device locale when set to System), one haptics
+switch for the whole app (taps, controls and timer cues), keep-awake, a compact
+library strip (coffees, recipes, brews), JSON export and restore, plus a
+**Learn** section that opens the guide and two troubleshooting articles.
 
 ## Screens
 
@@ -167,12 +169,13 @@ src/
   contexts/                  settings (preferences) and the in-memory brew draft
   database/                  schema, migrations, seeds, bootstrap
   hooks/                     use-brew-plan, use-brewing-timer, use-database,
-                             use-language, use-theme
+                             use-haptics, use-language, use-theme
   i18n/                      typed English and Indonesian dictionaries + locale detection
   services/                  calculator, timeline, grinders, beans, recipes,
                              journal, preferences, backup
   types/                     grinder, coffee, recipe, brewing
-  utils/                     calculations, grinder maths, formatting, validation
+  utils/                     calculations, formatting, grinder maths, haptics,
+                             validation
 tests/logic.test.ts          water maths, timeline, grinder clicks, validation,
                              guide integrity, i18n parity
 ```
@@ -520,6 +523,14 @@ Notes:
   `NumberField`, `MetricStrip`, compact `EmptyState` with `LoadingState` and
   `ErrorState`, and a keyboard-aware `BottomSheet`. Screens compose them; no
   screen owns SQL — all queries live in `services/`.
+- Haptics: one engine in `utils/haptics.ts`, exposed through `useHaptics()`, so
+  the Settings switch silences the entire app. Android pulses use
+  `performAndroidHapticsAsync`, the system's own touch-feedback effects, which
+  honour the device's touch-feedback setting and need no vibration permission.
+  Controls fire on press-in rather than release; saves confirm with success,
+  validation answers with a reject, destructive deletes land with a heavy thud,
+  and timer stage cues stay distinct from control taps. Other platforms are a
+  deliberate no-op.
 - Ergonomics and contrast: 44–48 dp touch targets, WCAG-AA faint-text tokens,
   and scroll content that measures the fixed footer so the primary action never
   covers the last row.

@@ -515,7 +515,7 @@ export const en: TranslationDict = {
     keepAwake: 'Keep the screen awake',
     keepAwakeDesc: 'The display stays on while a brew is running.',
     haptics: 'Haptic feedback',
-    hapticsDesc: 'A light tap when a stage changes.',
+    hapticsDesc: 'Vibration on taps, controls and brew stage changes.',
     library: 'Library',
     manageCoffeesA11y: 'Manage coffees',
     coffeeBeans: 'Coffee beans',

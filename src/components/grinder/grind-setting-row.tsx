@@ -97,6 +97,7 @@ export function GrindSettingRow({
         color={theme.textMuted}
         size={44}
         onPress={onDelete}
+        // Opens a confirmation; the heavy thud lands on the confirmed delete.
       />
     </View>
   );

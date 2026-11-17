@@ -8,8 +8,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import type { BrewTimerStatus, TimelineStage } from '@/types';
+import { hapticWarning, hapticSuccess } from '@/utils/haptics';
 import {
   brewProgress,
   stageIndexAt,
@@ -45,9 +45,13 @@ export interface BrewingTimer {
   finish: () => void;
 }
 
-function hapticTap(enabled: boolean) {
+/**
+ * Stage-change cue. A long press is distinct from the light taps the button
+ * controls use, so a stage boundary can never be confused with a control tap.
+ */
+function stageChangeHaptic(enabled: boolean) {
   if (!enabled) return;
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+  hapticWarning();
 }
 
 export function useBrewingTimer({
@@ -98,7 +102,7 @@ export function useBrewingTimer({
     setElapsedMs(finalMs);
     setStatus('finished');
     if (hapticsEnabled) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+      hapticSuccess();
     }
     onCompleteRef.current?.();
   }, [hapticsEnabled, readElapsed, totalDurationS]);
@@ -110,8 +114,9 @@ export function useBrewingTimer({
     previousStageRef.current = -1;
     setElapsedMs(0);
     setStatus('running');
-    hapticTap(hapticsEnabled);
-  }, [hapticsEnabled]);
+    // No touch haptic here: the Button that calls `start` fires its own
+    // medium pulse on press-in. Doing both would double-buzz.
+  }, []);
 
   const pause = useCallback(() => {
     if (runStartRef.current == null) return;
@@ -119,15 +124,13 @@ export function useBrewingTimer({
     runStartRef.current = null;
     setElapsedMs(offsetRef.current);
     setStatus('paused');
-    hapticTap(hapticsEnabled);
-  }, [hapticsEnabled, readElapsed]);
+  }, [readElapsed]);
 
   const resume = useCallback(() => {
     if (runStartRef.current != null) return;
     runStartRef.current = Date.now();
     setStatus('running');
-    hapticTap(hapticsEnabled);
-  }, [hapticsEnabled]);
+  }, []);
 
   const toggle = useCallback(() => {
     if (status === 'running') pause();
@@ -155,8 +158,11 @@ export function useBrewingTimer({
       return;
     }
     seek(next.startS * 1000);
-    hapticTap(hapticsEnabled);
-  }, [finish, hapticsEnabled, readElapsed, seek, stages, status, totalDurationS]);
+    // Sync the stage tracker so the effect below does not see the jump as
+    // a fresh stage change and buzz a second time on top of the button's
+    // own press-in pulse.
+    previousStageRef.current = index + 1;
+  }, [finish, readElapsed, seek, stages, status, totalDurationS]);
 
   // Re-render while running; the value itself comes from timestamps.
   useEffect(() => {
@@ -195,7 +201,7 @@ export function useBrewingTimer({
     const previous = previousStageRef.current;
     if (previous !== activeIndex) {
       previousStageRef.current = activeIndex;
-      if (previous >= 0) hapticTap(hapticsEnabled);
+      if (previous >= 0) stageChangeHaptic(hapticsEnabled);
     }
   }, [activeIndex, hapticsEnabled, status]);
 

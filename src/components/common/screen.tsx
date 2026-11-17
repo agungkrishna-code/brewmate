@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Radius, Spacing, TouchTarget } from '@/constants/theme';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { AppIcon } from './icon';
@@ -99,6 +100,7 @@ export function StackScreen({
   largeTitle = true,
 }: StackScreenProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { t } = useTranslation();
 
   return (
@@ -109,6 +111,7 @@ export function StackScreen({
           accessibilityLabel={t.common.back}
           hitSlop={6}
           onPress={onBack ?? (() => router.back())}
+          onPressIn={() => haptics.fire('selection')}
           style={({ pressed }) => [
             styles.backButton,
             {

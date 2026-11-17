@@ -7,6 +7,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { FontFamily, Radius, Spacing, TouchTarget } from '@/constants/theme';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTheme } from '@/hooks/use-theme';
 import { AppIcon, type IconName } from './icon';
 import { AppText } from './text';
@@ -21,6 +22,12 @@ export type ButtonVariant =
   | 'inverseSecondary'
   | 'inverseGhost';
 export type ButtonSize = 'sm' | 'md' | 'lg';
+/**
+ * Haptic weight of a press. Defaults to `medium` (a primary action) unless
+ * the call site says otherwise; `none` opts out for actions whose handler
+ * already fires its own result pulse (success/error).
+ */
+export type ButtonHaptic = 'selection' | 'light' | 'medium' | 'heavy' | 'none';
 
 interface ButtonProps {
   label: string;
@@ -34,6 +41,7 @@ interface ButtonProps {
   fullWidth?: boolean;
   style?: StyleProp<ViewStyle>;
   accessibilityHint?: string;
+  haptic?: ButtonHaptic;
 }
 
 const HEIGHTS: Record<ButtonSize, number> = { sm: 44, md: TouchTarget, lg: 56 };
@@ -51,8 +59,10 @@ export function Button({
   fullWidth,
   style,
   accessibilityHint,
+  haptic = 'medium',
 }: ButtonProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
 
   const palettes: Record<ButtonVariant, { bg: string; fg: string; border?: string }> = {
     primary: { bg: theme.primary, fg: theme.onPrimary },
@@ -74,6 +84,12 @@ export function Button({
   const palette = palettes[variant];
   const isDisabled = disabled || loading;
   const iconSize = size === 'lg' ? 19 : 16;
+  // Fire on touch-down, not on release: the buzz must land the millisecond
+  // the finger hits the glass, before the action's own result feedback.
+  const onPressIn = () => {
+    if (isDisabled || haptic === 'none') return;
+    haptics.fire(haptic);
+  };
 
   return (
     <Pressable
@@ -83,6 +99,7 @@ export function Button({
       accessibilityState={{ disabled: Boolean(isDisabled) }}
       disabled={isDisabled}
       onPress={onPress}
+      onPressIn={onPressIn}
       style={({ pressed }) => [
         styles.base,
         {
@@ -126,6 +143,8 @@ interface IconButtonProps {
   color?: string;
   variant?: 'plain' | 'surface' | 'accent' | 'instrument';
   disabled?: boolean;
+  /** Haptic weight; defaults to `light` since most icon buttons are secondary. */
+  haptic?: ButtonHaptic;
 }
 
 export function IconButton({
@@ -136,8 +155,14 @@ export function IconButton({
   color,
   variant = 'surface',
   disabled,
+  haptic = 'light',
 }: IconButtonProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
+  const onPressIn = () => {
+    if (disabled || haptic === 'none') return;
+    haptics.fire(haptic);
+  };
   const backgrounds = {
     plain: 'transparent',
     surface: theme.surface,
@@ -165,6 +190,7 @@ export function IconButton({
       disabled={disabled}
       hitSlop={Math.max(4, Math.ceil((TouchTarget - size) / 2))}
       onPress={onPress}
+      onPressIn={onPressIn}
       style={({ pressed }) => [
         {
           width: size,
@@ -203,6 +229,7 @@ export function SegmentedControl<T extends string>({
   stretch,
 }: SegmentedControlProps<T>) {
   const theme = useTheme();
+  const haptics = useHaptics();
 
   return (
     <View
@@ -220,6 +247,7 @@ export function SegmentedControl<T extends string>({
             accessibilityState={{ selected }}
             accessibilityLabel={option.label}
             onPress={() => onChange(option.value)}
+            onPressIn={() => haptics.fire('selection')}
             style={({ pressed }) => [
               styles.segment,
               stretch && styles.flex,

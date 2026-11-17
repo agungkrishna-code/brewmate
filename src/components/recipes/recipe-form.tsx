@@ -10,6 +10,7 @@ import { getDisclaimers } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useDatabase, useQuery } from '@/hooks/use-database';
 import { useBrewPlan } from '@/hooks/use-brew-plan';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { createRecipe, updateRecipe } from '@/services/recipes';
@@ -67,6 +68,7 @@ function seedFromPrefill(prefill: RecipePrefill): BrewRecipe {
 
 export function RecipeForm({ initialRecipe, prefill }: RecipeFormProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const db = useDatabase();
   const { lang, t } = useTranslation();
   const disclaimers = getDisclaimers(lang);
@@ -116,7 +118,11 @@ export function RecipeForm({ initialRecipe, prefill }: RecipeFormProps) {
       lang
     );
     setErrors(nextErrors);
-    if (Object.values(nextErrors).some(Boolean)) return;
+    if (Object.values(nextErrors).some(Boolean)) {
+      // Validation failed: buzz distinct from the tap so the user looks up.
+      haptics.error();
+      return;
+    }
 
     const draft: RecipeDraft = {
       name: name.trim(),
@@ -138,12 +144,15 @@ export function RecipeForm({ initialRecipe, prefill }: RecipeFormProps) {
     try {
       if (initialRecipe) {
         await updateRecipe(db, initialRecipe.id, draft);
+        haptics.success();
         router.back();
       } else {
         const id = await createRecipe(db, draft);
+        haptics.success();
         router.replace(`/recipes/${id}`);
       }
     } catch (caught) {
+      haptics.error();
       setSaveError(caught instanceof Error ? caught.message : t.recipeForm.saveError);
       setSaving(false);
     }
@@ -160,6 +169,8 @@ export function RecipeForm({ initialRecipe, prefill }: RecipeFormProps) {
             loading={saving}
             size="lg"
             fullWidth
+            // Result feedback comes from the save handler.
+            haptic="none"
           />
         </View>
       }>

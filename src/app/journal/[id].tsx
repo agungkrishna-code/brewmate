@@ -12,6 +12,7 @@ import { EMPTY_RATINGS, getRatingCategories, localizeStepLabel } from '@/constan
 import { BrandSurface, Radius, Spacing } from '@/constants/theme';
 import { useBrewDraft } from '@/contexts/brew-draft-context';
 import { useDatabase, useFocusedQuery } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { buildTimeline } from '@/services/brewing/timeline';
@@ -34,6 +35,7 @@ import { Alert, StyleSheet, View } from 'react-native';
 
 export default function SessionDetailScreen() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const db = useDatabase();
   const { lang, t } = useTranslation();
   const ratingCategories = getRatingCategories(lang);
@@ -63,12 +65,13 @@ export default function SessionDetailScreen() {
         text: t.common.delete,
         style: 'destructive',
         onPress: async () => {
+          haptics.fire('heavy');
           await deleteSession(db, data.session.id);
           router.back();
         },
       },
     ]);
-  }, [data, db, t]);
+  }, [data, db, haptics, t]);
 
   const brewAgain = useCallback(() => {
     if (!data) return;
@@ -340,6 +343,7 @@ function ReviewSheet({
 }) {
   const db = useDatabase();
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const ratingCategories = getRatingCategories(lang);
   const [ratings, setRatings] = useState<BrewRatings>(session.ratings ?? EMPTY_RATINGS);
@@ -350,8 +354,10 @@ function ReviewSheet({
     setSaving(true);
     try {
       await updateSessionReview(db, session.id, notes, ratings);
+      haptics.success();
       onSaved();
     } catch (caught) {
+      haptics.error();
       Alert.alert(
         t.journal.reviewSaveErr,
         caught instanceof Error ? caught.message : t.timer.tryAgain
@@ -375,6 +381,8 @@ function ReviewSheet({
           loading={saving}
           size="lg"
           fullWidth
+          // Result feedback comes from the save handler.
+          haptic="none"
         />
       }>
       <View style={styles.ratingRows}>

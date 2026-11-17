@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Radius, Spacing } from '@/constants/theme';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { AppIcon } from './icon';
@@ -38,6 +39,7 @@ export function BottomSheet({
   style,
 }: BottomSheetProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
@@ -59,6 +61,7 @@ export function BottomSheet({
           accessibilityLabel={t.common.close}
           style={[styles.backdrop, { backgroundColor: theme.overlay }]}
           onPress={onClose}
+          onPressIn={() => haptics.fire('light')}
         />
         <View
           style={[
@@ -85,6 +88,7 @@ export function BottomSheet({
               accessibilityLabel={t.common.close}
               hitSlop={4}
               onPress={onClose}
+              onPressIn={() => haptics.fire('light')}
               style={({ pressed }) => [
                 styles.close,
                 {
@@ -130,6 +134,7 @@ export function OptionSheet<T extends string>({
   onClose,
 }: OptionSheetProps<T>) {
   const theme = useTheme();
+  const haptics = useHaptics();
 
   return (
     <BottomSheet visible={visible} onClose={onClose} title={title} subtitle={subtitle}>
@@ -146,6 +151,7 @@ export function OptionSheet<T extends string>({
                 onSelect(option.value);
                 onClose();
               }}
+              onPressIn={() => haptics.fire('selection')}
               style={({ pressed }) => [
                 styles.option,
                 !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },

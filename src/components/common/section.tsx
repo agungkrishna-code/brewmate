@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { FontFamily, Radius, Spacing } from '@/constants/theme';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTheme } from '@/hooks/use-theme';
 import { AppIcon } from './icon';
 import { AppText } from './text';
@@ -21,6 +22,7 @@ export function SectionHeader({
   style,
 }: SectionHeaderProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
 
   return (
     <View style={[styles.sectionHeader, style]}>
@@ -37,6 +39,7 @@ export function SectionHeader({
           accessibilityRole="button"
           accessibilityLabel={actionLabel}
           onPress={onAction}
+          onPressIn={() => haptics.fire('selection')}
           hitSlop={10}
           style={({ pressed }) => [styles.action, { opacity: pressed ? 0.6 : 1 }]}>
           <AppText variant="small" color={theme.accent} style={styles.actionLabel}>

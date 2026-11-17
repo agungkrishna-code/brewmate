@@ -10,6 +10,7 @@ import { getDisclaimers, localizeStarterRecipe } from '@/constants/defaults';
 import { BrandSurface, Radius, Spacing } from '@/constants/theme';
 import { useBrewDraft } from '@/contexts/brew-draft-context';
 import { useDatabase, useFocusedQuery } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { buildTimeline, brewDraftFromRecipe } from '@/services/brewing/timeline';
@@ -23,6 +24,7 @@ import { Alert, StyleSheet, View } from 'react-native';
 
 export default function RecipeDetailScreen() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const db = useDatabase();
   const { lang, t } = useTranslation();
   const disclaimers = getDisclaimers(lang);
@@ -77,13 +79,15 @@ export default function RecipeDetailScreen() {
           text: t.common.delete,
           style: 'destructive',
           onPress: async () => {
+            // Fires at the confirmed delete, matching other destructive actions.
+            haptics.fire('heavy');
             await deleteRecipe(db, data.recipe.id);
             router.back();
           },
         },
       ]
     );
-  }, [data, db, t]);
+  }, [data, db, haptics, t]);
 
   if (loading && !data) {
     return (
@@ -148,6 +152,7 @@ export default function RecipeDetailScreen() {
           color={recipe.isFavorite ? theme.accent : theme.textMuted}
           label={recipe.isFavorite ? t.recipes.removeFavA11y : t.recipes.addFavA11y}
           onPress={toggleFavorite}
+          haptic="selection"
         />
         <IconButton
           icon="edit"
@@ -261,6 +266,7 @@ export default function RecipeDetailScreen() {
             label={t.common.delete}
             icon="trash"
             variant="danger"
+            // The heavy thud lands on the confirmed delete inside the alert.
             onPress={confirmDelete}
             style={styles.flex}
           />

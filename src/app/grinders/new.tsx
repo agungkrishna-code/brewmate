@@ -7,6 +7,7 @@ import { AppText } from '@/components/common/text';
 import { EMPTY_GRINDER_DRAFT } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useDatabase } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { createGrinder } from '@/services/grinders';
@@ -22,6 +23,7 @@ import { StyleSheet, View } from 'react-native';
 
 export default function NewGrinderScreen() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const db = useDatabase();
   const { lang, t } = useTranslation();
 
@@ -53,6 +55,7 @@ export default function NewGrinderScreen() {
     );
     setFieldErrors(errors);
     if (Object.values(errors).some(Boolean)) {
+      haptics.error();
       setError(Object.values(errors).filter(Boolean).join(' '));
       return;
     }
@@ -74,8 +77,10 @@ export default function NewGrinderScreen() {
         preferredMax: null,
         notes: notes.trim() || null,
       });
+      haptics.success();
       router.back();
     } catch (caught) {
+      haptics.error();
       setError(caught instanceof Error ? caught.message : t.grinder.saveError);
       setSaving(false);
     }
@@ -94,6 +99,8 @@ export default function NewGrinderScreen() {
             loading={saving}
             size="lg"
             fullWidth
+            // Result feedback comes from the save handler.
+            haptic="none"
           />
         </View>
       }>

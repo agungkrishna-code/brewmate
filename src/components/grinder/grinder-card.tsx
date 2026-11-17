@@ -1,5 +1,6 @@
 import type { GrinderProfile, GrindSettingDetail } from '@/types';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useHaptics } from '@/hooks/use-haptics';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
@@ -21,6 +22,7 @@ interface GrinderCardProps {
 
 export function GrinderCard({ grinder, lastSetting, onPress }: GrinderCardProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const reference = referenceRangeLabel(grinder, lang);
   const preferred = preferredRangeLabel(grinder, lang);
@@ -30,6 +32,7 @@ export function GrinderCard({ grinder, lastSetting, onPress }: GrinderCardProps)
       accessibilityRole="button"
       accessibilityLabel={t.grinder.cardA11y(grinder.name)}
       onPress={onPress}
+      onPressIn={() => haptics.fire('selection')}
       style={({ pressed }) => [
         styles.card,
         {

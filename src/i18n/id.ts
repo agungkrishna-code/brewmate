@@ -515,7 +515,7 @@ export const id: TranslationDict = {
     keepAwake: 'Layar tetap menyala',
     keepAwakeDesc: 'Layar tidak mati otomatis selama timer seduh berjalan.',
     haptics: 'Umpan balik getar',
-    hapticsDesc: 'Getaran ringan setiap kali tahap seduh berganti.',
+    hapticsDesc: 'Getaran saat menyentuh kontrol dan saat tahap seduh berganti.',
     library: 'Koleksi',
     manageCoffeesA11y: 'Kelola daftar kopi',
     coffeeBeans: 'Biji kopi',

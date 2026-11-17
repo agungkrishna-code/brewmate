@@ -4,6 +4,7 @@ import { Badge, SectionHeader } from '@/components/common/section';
 import { AppText } from '@/components/common/text';
 import { getGuideArticles } from '@/constants/guide';
 import { Radius, Spacing } from '@/constants/theme';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { router } from 'expo-router';
@@ -22,6 +23,7 @@ const ARTICLE_ICONS: Record<string, IconName> = {
 
 export default function GuideScreen() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const articles = getGuideArticles(lang);
 
@@ -66,6 +68,7 @@ export default function GuideScreen() {
               accessibilityRole="button"
               accessibilityLabel={article.title}
               onPress={() => router.push(`/guide/${article.slug}`)}
+              onPressIn={() => haptics.fire('selection')}
               style={({ pressed }) => [
                 styles.row,
                 {

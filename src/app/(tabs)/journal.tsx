@@ -11,6 +11,7 @@ import { SessionCard } from '@/components/journal/session-card';
 import { localizeProcessMethod, localizeRoastLevel } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useFocusedQuery } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { listBeans } from '@/services/beans';
@@ -23,6 +24,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 export default function JournalScreen() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const [grinderFilter, setGrinderFilter] = useState<string | null>(null);
   const [beanFilter, setBeanFilter] = useState<string | null>(null);
@@ -168,6 +170,7 @@ export default function JournalScreen() {
         accessibilityRole="button"
         accessibilityLabel={t.journal.guideA11y}
         onPress={() => router.push('/guide/taste-troubleshooting')}
+        onPressIn={() => haptics.fire('selection')}
         style={({ pressed }) => [
           styles.guideLink,
           {

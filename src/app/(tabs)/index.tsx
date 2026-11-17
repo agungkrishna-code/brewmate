@@ -12,6 +12,7 @@ import { RecipeCard } from '@/components/recipes/recipe-card';
 import { BrandSurface, Radius, Spacing } from '@/constants/theme';
 import { useBrewDraft } from '@/contexts/brew-draft-context';
 import { useFocusedQuery } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { recentBeans } from '@/services/beans';
@@ -25,6 +26,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 export default function HomeScreen() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const { beginBrew } = useBrewDraft();
 
@@ -122,6 +124,7 @@ export default function HomeScreen() {
           accessibilityRole="button"
           accessibilityLabel={t.home.adjustPlanA11y}
           onPress={() => router.push('/brew')}
+          onPressIn={() => haptics.fire('selection')}
           style={({ pressed }) => [styles.heroLink, { opacity: pressed ? 0.65 : 1 }]}>
           <AppText variant="small" color={BrandSurface.muted}>
             {t.home.adjustPlan}
@@ -218,6 +221,7 @@ export default function HomeScreen() {
         accessibilityRole="button"
         accessibilityLabel={t.home.brewGuideA11y}
         onPress={() => router.push('/guide')}
+        onPressIn={() => haptics.fire('selection')}
         style={({ pressed }) => [
           styles.guideRow,
           {

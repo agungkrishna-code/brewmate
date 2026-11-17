@@ -1,5 +1,6 @@
 import type { CoffeeBeanWithStats } from '@/types';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useHaptics } from '@/hooks/use-haptics';
 import { localizeProcessMethod, localizeRoastLevel } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTranslation } from '@/hooks/use-language';
@@ -15,6 +16,7 @@ interface BeanRowProps {
 
 export function BeanRow({ bean, onPress }: BeanRowProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const origin = bean.origin || [bean.region, bean.country].filter(Boolean).join(', ');
   const brewMeta =
@@ -30,6 +32,7 @@ export function BeanRow({ bean, onPress }: BeanRowProps) {
       accessibilityRole="button"
       accessibilityLabel={t.beans.rowA11y(bean.name)}
       onPress={onPress}
+      onPressIn={() => haptics.fire('selection')}
       style={({ pressed }) => [
         styles.row,
         {

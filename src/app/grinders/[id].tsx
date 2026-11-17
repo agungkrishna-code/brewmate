@@ -10,6 +10,7 @@ import { getDisclaimers, localizeGrinderReferenceNote } from '@/constants/defaul
 import { Radius, Spacing } from '@/constants/theme';
 import { useSettings } from '@/contexts/settings-context';
 import { useDatabase, useFocusedQuery } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { listBeans } from '@/services/beans';
@@ -31,6 +32,7 @@ import { Alert, StyleSheet, View } from 'react-native';
 
 export default function GrinderDetailScreen() {
   const theme = useTheme();
+  const haptics = useHaptics();
   const db = useDatabase();
   const { lang, t } = useTranslation();
   const { preferences, setLastGrinderId } = useSettings();
@@ -64,6 +66,7 @@ export default function GrinderDetailScreen() {
           text: t.common.delete,
           style: 'destructive',
           onPress: async () => {
+            haptics.fire('heavy');
             await deleteGrinder(db, data.grinder.id);
             if (preferences.lastGrinderId === data.grinder.id) {
               await setLastGrinderId(null);
@@ -73,7 +76,7 @@ export default function GrinderDetailScreen() {
         },
       ]
     );
-  }, [data, db, preferences.lastGrinderId, setLastGrinderId, t]);
+  }, [data, db, haptics, preferences.lastGrinderId, setLastGrinderId, t]);
 
   const confirmDeleteSetting = useCallback(
     (settingId: string) => {
@@ -83,13 +86,14 @@ export default function GrinderDetailScreen() {
           text: t.common.delete,
           style: 'destructive',
           onPress: async () => {
+            haptics.fire('heavy');
             await deleteGrindSetting(db, settingId);
             reload();
           },
         },
       ]);
     },
-    [db, reload, t]
+    [db, haptics, reload, t]
   );
 
   if (loading && !data) {
@@ -138,6 +142,7 @@ export default function GrinderDetailScreen() {
             icon="trash"
             label={t.grinder.deleteGrinderA11y}
             onPress={confirmDeleteGrinder}
+            // Heavy thud lands on the confirmed delete inside the alert.
           />
         )
       }>
@@ -231,6 +236,7 @@ function CalibrationForm({
   onSaved: () => void;
 }) {
   const db = useDatabase();
+  const haptics = useHaptics();
   const { lang, t } = useTranslation();
   const disclaimers = getDisclaimers(lang);
   const [preferredMin, setPreferredMin] = useState<number | null>(grinder.preferredMin);
@@ -265,6 +271,7 @@ function CalibrationForm({
     };
     const errors = validateGrinder(draft, lang);
     if (errors.preferredRange) {
+      haptics.error();
       setRangeError(errors.preferredRange);
       return;
     }
@@ -272,11 +279,13 @@ function CalibrationForm({
     setSaving(true);
     try {
       await updateGrinder(db, grinder.id, draft);
+      haptics.success();
       setSavedFlash(true);
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
       flashTimerRef.current = setTimeout(() => setSavedFlash(false), 1800);
       onSaved();
     } catch (caught) {
+      haptics.error();
       Alert.alert(
         t.grinder.saveError,
         caught instanceof Error ? caught.message : t.timer.tryAgain
@@ -337,6 +346,8 @@ function CalibrationForm({
           variant="secondary"
           onPress={save}
           loading={saving}
+          // Result feedback comes from the save handler.
+          haptic="none"
         />
         <AppText variant="caption" tone="faint">
           {disclaimers.grinder}

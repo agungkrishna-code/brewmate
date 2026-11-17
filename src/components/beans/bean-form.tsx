@@ -13,6 +13,7 @@ import {
 } from '@/constants/defaults';
 import { Radius, Spacing } from '@/constants/theme';
 import { useDatabase } from '@/hooks/use-database';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useTranslation } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 import { createBean, deleteBean, setBeanArchived, updateBean } from '@/services/beans';
@@ -33,6 +34,7 @@ interface BeanFormProps {
 
 export function BeanForm({ initialBean }: BeanFormProps) {
   const theme = useTheme();
+  const haptics = useHaptics();
   const db = useDatabase();
   const { lang, t } = useTranslation();
 
@@ -73,6 +75,7 @@ export function BeanForm({ initialBean }: BeanFormProps) {
     const errors = validateBean(draft, lang);
     setFieldErrors(errors);
     if (Object.values(errors).some(Boolean)) {
+      haptics.error();
       setError(Object.values(errors).filter(Boolean).join(' '));
       return;
     }
@@ -85,12 +88,15 @@ export function BeanForm({ initialBean }: BeanFormProps) {
         if (archived !== initialBean.isArchived) {
           await setBeanArchived(db, initialBean.id, archived);
         }
+        haptics.success();
         router.back();
       } else {
         await createBean(db, draft);
+        haptics.success();
         router.back();
       }
     } catch (caught) {
+      haptics.error();
       setError(caught instanceof Error ? caught.message : t.beans.saveError);
       setSaving(false);
     }
@@ -104,6 +110,7 @@ export function BeanForm({ initialBean }: BeanFormProps) {
         text: t.common.delete,
         style: 'destructive',
         onPress: async () => {
+          haptics.fire('heavy');
           await deleteBean(db, initialBean.id);
           router.back();
         },
@@ -124,6 +131,8 @@ export function BeanForm({ initialBean }: BeanFormProps) {
             loading={saving}
             size="lg"
             fullWidth
+            // Result feedback comes from the save handler.
+            haptic="none"
           />
         </View>
       }>
